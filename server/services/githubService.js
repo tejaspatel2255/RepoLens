@@ -29,39 +29,64 @@ function wrapError(error) {
 
 export class GitHubService {
   constructor() {
+    // axios client is kept for individual method calls
     this.client = axios.create({
       baseURL: 'https://api.github.com',
-      headers: {
-        Accept: 'application/vnd.github.v3+json',
-        ...(GITHUB_TOKEN && { Authorization: `token ${GITHUB_TOKEN}` })
-      }
+      headers: this.getHeaders()
     });
   }
 
   /**
-   * 1. Parse repository URL or slug into owner and repo name
+   * Build GitHub API headers, including auth token if available
+   */
+  getHeaders() {
+    const headers = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'RepoLens-App'
+    };
+    const token = process.env.GITHUB_TOKEN;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  }
+
+  /**
+   * 1. Parse repository URL or slug into owner and repo name.
+   * Supports all common formats:
+   *   https://github.com/owner/repo
+   *   https://github.com/owner/repo/tree/main
+   *   github.com/owner/repo
+   *   owner/repo
    */
   parseRepoUrl(url) {
     if (!url || typeof url !== 'string') {
-      throw new Error('Invalid repository URL');
-    }
-    
-    let clean = url.trim().replace(/\/$/, '').replace(/\.git$/, '');
-    
-    // Match github.com/owner/repo
-    const githubRegex = /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+)\/([^\/]+)(?:\/.*)?$/i;
-    const githubMatch = clean.match(githubRegex);
-    if (githubMatch) {
-      return { owner: githubMatch[1], repo: githubMatch[2] };
+      throw new Error('Please enter a GitHub repository URL');
     }
 
-    // Match owner/repo
-    const parts = clean.split('/');
-    if (parts.length === 2 && parts[0] && parts[1]) {
-      return { owner: parts[0], repo: parts[1] };
-    }
+    let cleaned = url.trim();
+    cleaned = cleaned.replace(/\/$/, '');
+    cleaned = cleaned.replace(/\.git$/, '');
 
-    throw new Error('Invalid GitHub repository URL or slug format');
+    // Pattern 1: full URL with protocol (handles extra paths like /tree/main)
+    let match = cleaned.match(/^https?:\/\/github\.com\/([^\/\s]+)\/([^\/\?\#\s]+)/);
+    if (match) return { owner: match[1], repo: match[2] };
+
+    // Pattern 2: URL without protocol
+    match = cleaned.match(/^(?:www\.)?github\.com\/([^\/\s]+)\/([^\/\?\#\s]+)/);
+    if (match) return { owner: match[1], repo: match[2] };
+
+    // Pattern 3: plain owner/repo shorthand
+    match = cleaned.match(/^([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (match) return { owner: match[1], repo: match[2] };
+
+    // Pattern 4: github.com anywhere in the string (e.g. copied from address bar)
+    match = cleaned.match(/github\.com\/([^\/\s]+)\/([^\/\?\#\s]+)/);
+    if (match) return { owner: match[1], repo: match[2] };
+
+    throw new Error(
+      'Invalid GitHub URL. Please use format: https://github.com/owner/repo'
+    );
   }
 
   /**
@@ -359,7 +384,31 @@ export class GitHubService {
    * 8. Fetch all data in parallel using Promise.allSettled()
    */
   async getAllRepoData(url) {
+    console.log('=== PARSING URL ===', url);
     const { owner, repo } = this.parseRepoUrl(url);
+    console.log('=== PARSED ===', { owner, repo });
+
+    // Pre-validate that the repo is accessible before firing all parallel calls
+    try {
+      const testRes = await axios.get(
+        `https://api.github.com/repos/${owner}/${repo}`,
+        { headers: this.getHeaders() }
+      );
+      console.log('=== REPO EXISTS ===', testRes.data.full_name);
+    } catch (testErr) {
+      const status = testErr.response?.status;
+      console.log('=== REPO CHECK FAILED === status:', status);
+      if (status === 404) {
+        throw new Error(`Repository "${owner}/${repo}" not found. Make sure it is public and the URL is correct.`);
+      }
+      if (status === 403) {
+        throw new Error('GitHub API rate limit reached. Please wait 60 minutes or add a GitHub token.');
+      }
+      if (status === 401) {
+        throw new Error('GitHub API token is invalid or expired.');
+      }
+      throw new Error(`GitHub API error: ${status} — ${testErr.response?.data?.message || testErr.message}`);
+    }
 
     const [
       infoRes,
@@ -381,33 +430,37 @@ export class GitHubService {
       this.getFolderStructure(owner, repo)
     ]);
 
-    // If base repo info fails, throw that error since we cannot proceed without repository info
+    // If base repo info fails, surface the error
     if (infoRes.status === 'rejected') {
       throw infoRes.reason;
     }
 
-    return {
+    const result = {
       owner,
       repo,
+      repoUrl: `https://github.com/${owner}/${repo}`,
       info: infoRes.value,
       languages: languagesRes.status === 'fulfilled' ? languagesRes.value : [],
       contributors: contributorsRes.status === 'fulfilled' ? contributorsRes.value : [],
       commits: commitsRes.status === 'fulfilled' ? commitsRes.value : [],
       contents: contentsRes.status === 'fulfilled' ? contentsRes.value : [],
       readme: readmeRes.status === 'fulfilled' ? readmeRes.value : '',
-      packageInfo: packageInfoRes.status === 'fulfilled' ? packageInfoRes.value : { name: repo, version: '1.0.0', scripts: {}, dependencies: {}, devDependencies: {}, packageManager: 'Unknown' },
+      packageInfo: packageInfoRes.status === 'fulfilled' ? packageInfoRes.value : {
+        name: repo, version: '1.0.0', scripts: {}, dependencies: {}, devDependencies: {}, packageManager: 'Unknown'
+      },
       folderStructure: folderStructureRes.status === 'fulfilled' ? folderStructureRes.value : {
-        hasTests: false,
-        hasDocs: false,
-        hasCI: false,
-        hasDocker: false,
-        hasConfig: false,
-        hasMigrations: false,
-        hasComponents: false,
-        hasAPI: false,
-        allPaths: []
+        hasTests: false, hasDocs: false, hasCI: false, hasDocker: false,
+        hasConfig: false, hasMigrations: false, hasComponents: false, hasAPI: false, allPaths: []
       }
     };
+
+    console.log('=== ALL DATA FETCHED ===');
+    console.log('Languages:', result.languages.length);
+    console.log('Contributors:', result.contributors.length);
+    console.log('Commits:', result.commits.length);
+    console.log('Readme length:', result.readme.length);
+
+    return result;
   }
 }
 

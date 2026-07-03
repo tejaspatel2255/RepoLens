@@ -23,22 +23,33 @@ function Home() {
   ];
 
   const handleAnalyze = async (url) => {
-    setRepoUrl(url);
+    const trimmedUrl = (url || '').trim();
+
+    if (!trimmedUrl) {
+      setError({ message: 'Please enter a GitHub repository URL', status: 400 });
+      return;
+    }
+
+    setRepoUrl(trimmedUrl);
     setIsLoading(true);
     setError(null);
     setCurrentStep(0);
 
+    console.log('[Home] Analyzing URL:', trimmedUrl);
+
     try {
       // Step 1: Fetch GitHub Data
-      const repoData = await fetchGithubData(url);
-      
-      // Step 2: Codebase Structure
-      setCurrentStep(1);
-      await new Promise(resolve => setTimeout(resolve, 800)); // Visual spacing
+      const repoData = await fetchGithubData(trimmedUrl);
+      console.log('[Home] repoData received:', repoData?.owner + '/' + repoData?.repo);
 
-      // Step 3: Run AI analysis and Save report
+      // Step 2: Visual spacing while reading structure
+      setCurrentStep(1);
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Step 3: Run AI analysis and save report
       setCurrentStep(2);
       const analysisResult = await analyzeRepo(repoData);
+      console.log('[Home] analysisResult:', analysisResult?.analysisId);
 
       // Step 4: Saving report visual confirmation
       setCurrentStep(3);
@@ -51,10 +62,10 @@ function Home() {
       // Redirect to /report/:id
       navigate(`/report/${analysisResult.analysisId}`);
     } catch (err) {
-      console.error('[Analyze Flow Failure]:', err);
+      console.error('[Home] Analyze flow failure:', err.message);
       setError({
-        message: err.response?.data?.error?.message || err.message || 'Failed to complete analysis.',
-        status: err.response?.status || 500
+        message: err.message || 'Failed to complete analysis.',
+        status: 500
       });
     } finally {
       setIsLoading(false);
