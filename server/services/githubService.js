@@ -224,18 +224,161 @@ export class GitHubService {
   }
 
   /**
+   * Fetch and parse package.json or equivalent manifest
+   */
+  async getPackageJson(owner, repo) {
+    const filesToTry = [
+      { path: 'package.json', pm: 'npm' },
+      { path: 'requirements.txt', pm: 'pip' },
+      { path: 'go.mod', pm: 'go' },
+      { path: 'Cargo.toml', pm: 'cargo' },
+      { path: 'pubspec.yaml', pm: 'pub' },
+      { path: 'composer.json', pm: 'composer' },
+      { path: 'pom.xml', pm: 'maven' }
+    ];
+
+    for (const file of filesToTry) {
+      try {
+        const res = await this.client.get(`/repos/${owner}/${repo}/contents/${file.path}`);
+        if (res.data && res.data.content) {
+          const decoded = Buffer.from(res.data.content, 'base64').toString('utf-8');
+          
+          if (file.path === 'package.json') {
+            const parsed = JSON.parse(decoded);
+            return {
+              name: parsed.name || repo,
+              version: parsed.version || '0.0.0',
+              scripts: parsed.scripts || {},
+              dependencies: parsed.dependencies || {},
+              devDependencies: parsed.devDependencies || {},
+              packageManager: file.pm
+            };
+          } else if (file.path === 'composer.json') {
+            const parsed = JSON.parse(decoded);
+            return {
+              name: parsed.name || repo,
+              version: parsed.version || '1.0.0',
+              scripts: parsed.scripts || {},
+              dependencies: parsed.require || {},
+              devDependencies: parsed['require-dev'] || {},
+              packageManager: file.pm
+            };
+          } else if (file.path === 'requirements.txt') {
+            const deps = {};
+            decoded.split('\n').forEach(line => {
+              const clean = line.trim().split('==')[0].split('>=')[0].trim();
+              if (clean && !clean.startsWith('#')) {
+                deps[clean] = '*';
+              }
+            });
+            return {
+              name: repo,
+              version: '1.0.0',
+              scripts: {},
+              dependencies: deps,
+              devDependencies: {},
+              packageManager: file.pm
+            };
+          } else {
+            return {
+              name: repo,
+              version: '1.0.0',
+              scripts: {},
+              dependencies: { [file.path]: 'present' },
+              devDependencies: {},
+              packageManager: file.pm
+            };
+          }
+        }
+      } catch (err) {
+        // Continue to the next file if not found
+      }
+    }
+
+    return {
+      name: repo,
+      version: '1.0.0',
+      scripts: {},
+      dependencies: {},
+      devDependencies: {},
+      packageManager: 'Unknown'
+    };
+  }
+
+  /**
+   * Fetch recursive tree and build structural information
+   */
+  async getFolderStructure(owner, repo) {
+    try {
+      const res = await this.client.get(`/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`);
+      const tree = res.data?.tree || [];
+      
+      const filteredTree = tree.filter(item => {
+        const parts = item.path.split('/');
+        return parts.length <= 2;
+      });
+
+      const hasTests = tree.some(item => /test|spec|__tests__/i.test(item.path));
+      const hasDocs = tree.some(item => /docs|documentation/i.test(item.path));
+      const hasCI = tree.some(item => /\.github\/workflows|\.travis\.yml|Jenkinsfile/i.test(item.path));
+      const hasDocker = tree.some(item => /Dockerfile|docker-compose/i.test(item.path));
+      const hasConfig = tree.some(item => /\.env\.example|config\//i.test(item.path));
+      const hasMigrations = tree.some(item => /migrations\/|prisma\//i.test(item.path));
+      const hasComponents = tree.some(item => /components\/|src\/components/i.test(item.path));
+      const hasAPI = tree.some(item => /api\/|routes\/|controllers\//i.test(item.path));
+      
+      const allPaths = filteredTree.map(item => item.path).slice(0, 50);
+
+      return {
+        hasTests,
+        hasDocs,
+        hasCI,
+        hasDocker,
+        hasConfig,
+        hasMigrations,
+        hasComponents,
+        hasAPI,
+        allPaths
+      };
+    } catch (error) {
+      return {
+        hasTests: false,
+        hasDocs: false,
+        hasCI: false,
+        hasDocker: false,
+        hasConfig: false,
+        hasMigrations: false,
+        hasComponents: false,
+        hasAPI: false,
+        allPaths: []
+      };
+    }
+  }
+
+  /**
    * 8. Fetch all data in parallel using Promise.allSettled()
    */
   async getAllRepoData(url) {
     const { owner, repo } = this.parseRepoUrl(url);
 
-    const [infoRes, languagesRes, contributorsRes, commitsRes, contentsRes, readmeRes] = await Promise.allSettled([
+    const [
+      infoRes,
+      languagesRes,
+      contributorsRes,
+      commitsRes,
+      contentsRes,
+      readmeRes,
+      packageInfoRes,
+      folderStructureRes
+    ] = await Promise.allSettled([
       this.getRepoInfo(owner, repo),
       this.getLanguages(owner, repo),
       this.getContributors(owner, repo),
       this.getCommits(owner, repo),
       this.getContents(owner, repo),
-      this.getReadme(owner, repo)
+      this.getReadme(owner, repo),
+      this.getPackageJson(owner, repo),
+      this.getFolderStructure(owner, repo)
     ]);
 
     // If base repo info fails, throw that error since we cannot proceed without repository info
@@ -251,7 +394,19 @@ export class GitHubService {
       contributors: contributorsRes.status === 'fulfilled' ? contributorsRes.value : [],
       commits: commitsRes.status === 'fulfilled' ? commitsRes.value : [],
       contents: contentsRes.status === 'fulfilled' ? contentsRes.value : [],
-      readme: readmeRes.status === 'fulfilled' ? readmeRes.value : ''
+      readme: readmeRes.status === 'fulfilled' ? readmeRes.value : '',
+      packageInfo: packageInfoRes.status === 'fulfilled' ? packageInfoRes.value : { name: repo, version: '1.0.0', scripts: {}, dependencies: {}, devDependencies: {}, packageManager: 'Unknown' },
+      folderStructure: folderStructureRes.status === 'fulfilled' ? folderStructureRes.value : {
+        hasTests: false,
+        hasDocs: false,
+        hasCI: false,
+        hasDocker: false,
+        hasConfig: false,
+        hasMigrations: false,
+        hasComponents: false,
+        hasAPI: false,
+        allPaths: []
+      }
     };
   }
 }

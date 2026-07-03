@@ -98,6 +98,53 @@ function AISummary({ aiAnalysis, info }) {
     );
   };
 
+  const getArchitectureBadge = (arch) => {
+    if (!arch) return null;
+    let bgClass = 'badge-gray';
+    let emoji = '🏗️';
+    let tooltipText = 'The structural architecture pattern chosen for organizing the code in this repository.';
+    const archLower = arch.toLowerCase();
+    
+    if (archLower.includes('monolith')) {
+      bgClass = 'badge-blue';
+      emoji = '🏛️';
+      tooltipText = 'Monolith: Single unified codebase containing all application logic and components.';
+    } else if (archLower.includes('microservices') || archLower.includes('microservice')) {
+      bgClass = 'badge-purple';
+      emoji = '🧩';
+      tooltipText = 'Microservices: Divided into independent, modular services communicating via APIs.';
+    } else if (archLower.includes('serverless')) {
+      bgClass = 'badge-orange';
+      emoji = '☁️';
+      tooltipText = 'Serverless: Built using cloud functions executed on-demand without server management.';
+    } else if (archLower.includes('jamstack') || archLower.includes('jam')) {
+      bgClass = 'badge-green';
+      emoji = '🥞';
+      tooltipText = 'JAMstack: Modern web stack based on client-side JavaScript, APIs, and pre-rendered Markup.';
+    } else if (archLower.includes('mvc')) {
+      bgClass = 'badge-teal';
+      emoji = '📐';
+      tooltipText = 'MVC: Separates application logic into Model (data), View (UI), and Controller (logic).';
+    } else if (archLower.includes('spa') || archLower.includes('single page')) {
+      bgClass = 'badge-blue';
+      emoji = '📄';
+      tooltipText = 'SPA: Single Page Application utilizing client-side routing and rendering.';
+    } else if (archLower.includes('rest') || archLower.includes('api')) {
+      bgClass = 'badge-orange';
+      emoji = '🔌';
+      tooltipText = 'REST API: Exposes HTTP endpoints conforming to architectural REST standards.';
+    }
+    
+    return (
+      <span 
+        className={`summary-badge arch-tooltip-target ${bgClass}`}
+        data-tooltip={tooltipText}
+      >
+        <span className="badge-emoji">{emoji}</span> {arch}
+      </span>
+    );
+  };
+
   return (
     <div className="ai-summary-card card animate-fade">
       {/* 1. Header & Title details */}
@@ -144,6 +191,7 @@ function AISummary({ aiAnalysis, info }) {
       {/* 2. Badge Metadata Row */}
       <div className="badge-row">
         {getProjectTypeBadge(aiAnalysis.projectType)}
+        {getArchitectureBadge(aiAnalysis.architectureType)}
         {getDifficultyBadge(aiAnalysis.difficultyToUse)}
         {getMaturityBadge(aiAnalysis.maturityLevel)}
       </div>
@@ -337,6 +385,41 @@ function AISummary({ aiAnalysis, info }) {
           font-size: 0.8rem;
           font-weight: 700;
           letter-spacing: 0.02em;
+        }
+
+        .arch-tooltip-target {
+          position: relative;
+          cursor: help;
+        }
+
+        .arch-tooltip-target::after {
+          content: attr(data-tooltip);
+          position: absolute;
+          bottom: 125%;
+          left: 50%;
+          transform: translateX(-50%) scale(0.9);
+          background-color: #161b22;
+          color: #c9d1d9;
+          padding: 8px 12px;
+          border-radius: 6px;
+          border: 1px solid #30363d;
+          font-size: 0.75rem;
+          font-weight: 500;
+          white-space: normal;
+          width: 200px;
+          text-align: center;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          z-index: 100;
+          pointer-events: none;
+        }
+
+        .arch-tooltip-target:hover::after {
+          opacity: 1;
+          visibility: visible;
+          transform: translateX(-50%) scale(1);
         }
 
         .badge-emoji {

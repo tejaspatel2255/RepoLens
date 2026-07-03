@@ -14,6 +14,10 @@ import CommitTimeline from '../components/CommitTimeline.jsx';
 import ErrorCard from '../components/ErrorCard.jsx';
 import LoadingScreen from '../components/LoadingScreen.jsx';
 
+import HealthScore from '../components/HealthScore.jsx';
+import FolderTree from '../components/FolderTree.jsx';
+import InstallRun from '../components/InstallRun.jsx';
+
 function Report() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -165,6 +169,19 @@ Analyze your own repo at: repolens.app`;
         {/* 3. AI Executive Summaries */}
         <AISummary aiAnalysis={data.ai_analysis} info={infoObject} />
 
+        {/* New: Project Health Score Card */}
+        {data.ai_analysis?.projectHealthScore && (
+          <HealthScore healthScore={data.ai_analysis.projectHealthScore} />
+        )}
+
+        {/* New: Install & Run Section */}
+        {(data.ai_analysis?.installCommand || data.ai_analysis?.runCommand) && (
+          <InstallRun 
+            installCommand={data.ai_analysis.installCommand} 
+            runCommand={data.ai_analysis.runCommand} 
+          />
+        )}
+
         {/* 4. Who is it for text block section */}
         <div className="who-is-it-for-section card">
           <h3 className="section-title-clean">👥 Who is this project for?</h3>
@@ -175,6 +192,11 @@ Analyze your own repo at: repolens.app`;
 
         {/* 5. Features Grid */}
         <KeyFeatures features={data.ai_analysis?.keyFeatures || data.ai_analysis?.key_features} />
+
+        {/* New: Folder Structure Section */}
+        {data.ai_analysis?.folderStructure && (
+          <FolderTree folderStructure={data.ai_analysis.folderStructure} />
+        )}
 
         {/* 6. How it works flow chart */}
         <HowItWorks steps={data.ai_analysis?.howItWorks || data.ai_analysis?.how_it_works} />

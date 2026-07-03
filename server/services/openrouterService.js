@@ -66,64 +66,170 @@ export async function analyzeRepo(repoData) {
   const contents = repoData.contents || [];
   const readme = repoData.readme || 'No README file available.';
 
+  const packageInfo = repoData.packageInfo || { name: repo, version: '1.0.0', scripts: {}, dependencies: {}, devDependencies: {}, packageManager: 'Unknown' };
+  const folderStructure = repoData.folderStructure || {
+    hasTests: false,
+    hasDocs: false,
+    hasCI: false,
+    hasDocker: false,
+    hasConfig: false,
+    hasMigrations: false,
+    hasComponents: false,
+    hasAPI: false,
+    allPaths: []
+  };
+
   const languagesStr = languages.map(l => `${l.name} (${l.percentage}%)`).join(', ');
-  const contributorLogins = contributors.map(c => c.login).join(', ');
+  const contributorLogins = contributors.map(c => `${c.login} (${c.contributions || 0} commits)`).join(', ');
   const readmeContent = readme.slice(0, 4000);
 
-  const prompt = `You are analyzing a REAL GitHub repository. You must describe THIS SPECIFIC project only. Do NOT give generic software descriptions. Do NOT say things like 'Repository Metadata Aggregation' or 'Git Activity Tracking' — those are descriptions of GitHub itself, not this project.
+  const topicsStr = (info.topics || []).join(', ') || 'None';
+  const homepageStr = info.homepage || 'None';
+  const descriptionStr = info.description || 'No description provided';
+  const isForkStr = info.isFork !== undefined ? info.isFork.toString() : 'false';
+  const isArchivedStr = info.isArchived !== undefined ? info.isArchived.toString() : 'false';
 
-Repository: ${owner}/${repo}
-Description: ${info.description || 'No description provided.'}
-Topics: ${(info.topics || []).join(', ')}
-Stars: ${info.stars || 0} | Forks: ${info.forks || 0}
+  const systemPrompt = "You are an expert software analyst. Your job is to deeply analyze a GitHub repository and explain it clearly to someone who has never coded. You MUST base your analysis ONLY on the actual data provided — the README, folder structure, package dependencies, and commit messages. NEVER give generic answers. NEVER describe what GitHub does. NEVER say things like 'Repository Metadata Aggregation'. Every single field in your response must be specific to THIS repository. Respond ONLY with raw valid JSON. No markdown. No backticks. No extra text.";
+
+  const userPrompt = `Analyze this GitHub repository deeply and return a detailed JSON report.
+
+=== REPOSITORY IDENTITY ===
+Name: ${owner}/${repo}
+Description: ${descriptionStr}
+Topics/Tags: ${topicsStr}
+Homepage: ${homepageStr}
+Stars: ${info.stars || 0} | Forks: ${info.forks || 0} | Watchers: ${info.watchers || 0}
+Open Issues: ${info.openIssues || 0}
 Primary Language: ${info.language || 'Unknown'}
-Languages used: ${languagesStr}
-Top Contributors: ${contributorLogins}
+Repo Size: ${info.size || 0} KB
+Created: ${info.createdAt || 'Unknown'} | Last Updated: ${info.pushedAt || 'Unknown'}
+Is Fork: ${isForkStr} | Is Archived: ${isArchivedStr}
 
-Last 15 commit messages (READ THESE CAREFULLY — they reveal what the project does):
-${commits.map(c => '- ' + c.message).join('\n')}
+=== LANGUAGE BREAKDOWN ===
+${languages.map(l => `${l.name}: ${l.percentage}%`).join('\n')}
 
-Root files/folders (READ THESE — they reveal the project structure):
-${contents.map(c => c.name).join(', ')}
+=== FOLDER & FILE STRUCTURE ===
+Root level files/folders: ${contents.map(c => c.type === 'dir' ? c.name+'/' : c.name).join(', ')}
 
-README (this is the most important — read it carefully):
-${readmeContent}
+Full file tree (first 50 paths):
+${(folderStructure.allPaths || []).join('\n')}
 
-STRICT RULES:
-- keyFeatures must describe what THIS app/tool ACTUALLY does for its users
-- Do NOT describe what GitHub does or what any repo generically does
-- If the README mentions specific features, use THOSE exact features
-- techStack must only include technologies actually found in this codebase
-- howItWorks must describe THIS project's actual workflow, not generic steps
-- similarTo must reference a real well-known app this resembles
-- If README is empty or unhelpful, use commit messages and folder names to infer purpose
+Structure flags:
+- Has Tests: ${folderStructure.hasTests}
+- Has Documentation: ${folderStructure.hasDocs}
+- Has CI/CD Pipeline: ${folderStructure.hasCI}
+- Has Docker: ${folderStructure.hasDocker}
+- Has Database Migrations: ${folderStructure.hasMigrations}
+- Has React Components: ${folderStructure.hasComponents}
+- Has API Routes: ${folderStructure.hasAPI}
 
-Return ONLY this raw JSON, no markdown, no backticks:
+=== DEPENDENCIES (from package.json / equivalent) ===
+Package Name: ${packageInfo.name || repo}
+Version: ${packageInfo.version || '1.0.0'}
+Scripts available: ${Object.keys(packageInfo.scripts || {}).join(', ')}
+
+Main dependencies:
+${Object.keys(packageInfo.dependencies || {}).join(', ')}
+
+Dev dependencies:
+${Object.keys(packageInfo.devDependencies || {}).join(', ')}
+
+=== TOP CONTRIBUTORS ===
+${contributors.map(c => c.login + ' (' + c.contributions + ' commits)').join(', ')}
+
+=== LAST 15 COMMIT MESSAGES (read carefully — reveals what was built) ===
+${commits.map((c, i) => `${i+1}. [${c.date ? c.date.slice(0,10) : 'Unknown'}] ${c.message}`).join('\n')}
+
+=== README (most important — read every word) ===
+${readmeContent || 'No README found — infer from structure and commits'}
+
+=== YOUR ANALYSIS TASK ===
+Based on ALL the above data, return this EXACT JSON structure.
+Every field must reflect THIS specific repository. Be precise and detailed.
+
 {
-  "tagline": "specific one-line description of what THIS project actually does",
-  "whatItDoes": "3 paragraphs explaining THIS project to a non-technical person. Be specific about what it does, not generic.",
-  "problemItSolves": "the REAL problem THIS specific project solves",
-  "whoIsItFor": "the EXACT type of person who would use THIS tool",
-  "realWorldUseCase": "a SPECIFIC realistic story of someone using THIS exact tool",
+  "tagline": "One punchy sentence (max 15 words) describing what THIS project does. Must be specific.",
+
+  "whatItDoes": "Write 3 full paragraphs explaining what this project does for a non-technical person. Paragraph 1: what the project is. Paragraph 2: what problem it solves. Paragraph 3: how someone would use it day to day. Be specific to this repo.",
+
+  "problemItSolves": "The exact real-world problem THIS project addresses in 2 sentences.",
+
+  "whoIsItFor": "The specific type of person or team who would use this. Be precise.",
+
+  "realWorldUseCase": "Tell a specific story: A [type of person] uses this to [do what] so that [result]. Make it realistic and specific to this project.",
+
   "keyFeatures": [
-    "Feature specific to this project",
-    "Another real feature from the README or code",
-    "Third specific feature",
-    "Fourth specific feature", 
-    "Fifth specific feature"
+    "Feature 1 — must be a real feature from the README or codebase",
+    "Feature 2 — must be a real feature from the README or codebase",
+    "Feature 3 — must be a real feature from the README or codebase",
+    "Feature 4 — must be a real feature from the README or codebase",
+    "Feature 5 — must be a real feature from the README or codebase"
   ],
+
   "techStack": [
-    {"name": "actual tech name", "role": "what it does in THIS project", "icon": "emoji", "category": "Frontend/Backend/Database/etc"}
+    {
+      "name": "exact technology name",
+      "role": "what this technology specifically does in THIS project",
+      "icon": "relevant emoji",
+      "category": "Frontend / Backend / Database / DevOps / Testing / AI / Other",
+      "learnMore": "one sentence why this technology was likely chosen"
+    }
   ],
+
+  "folderStructure": [
+    {
+      "name": "folder or file name",
+      "type": "folder or file",
+      "purpose": "what this folder/file does in plain English"
+    }
+  ],
+
   "howItWorks": [
-    {"step": 1, "title": "Specific step title", "description": "What actually happens in THIS project"}
+    {
+      "step": 1,
+      "title": "Short specific title",
+      "description": "Plain English explanation of THIS step in THIS project specifically"
+    }
   ],
-  "projectType": "Web App / CLI Tool / Library / API / Mobile App / DevOps Tool / AI Tool / Game / Other",
+
+  "architectureType": "Monolith / Microservices / Serverless / JAMstack / MVC / etc",
+
+  "projectType": "Web App / CLI Tool / Library / API / Mobile App / DevOps Tool / AI Tool / Game / Browser Extension / Other",
+
   "difficultyToUse": "Easy / Moderate / Technical",
-  "maturityLevel": "Experimental / Active Development / Stable / Mature",
-  "similarTo": "This is like [real well-known app] but [specific difference]",
-  "gettingStarted": "How to actually start using THIS project in 2-3 sentences",
-  "funFact": "one genuinely interesting or surprising thing about THIS specific project"
+
+  "difficultyToContribute": "Beginner Friendly / Intermediate / Expert Only",
+
+  "maturityLevel": "Experimental / Active Development / Stable / Mature / Abandoned",
+
+  "hasTests": ${folderStructure.hasTests},
+
+  "hasDocker": ${folderStructure.hasDocker},
+
+  "hasCICD": ${folderStructure.hasCI},
+
+  "similarTo": "This is like [real well-known app/tool] but [specific difference based on actual repo]",
+
+  "gettingStarted": "Exactly how to start using or running this project based on the README and scripts. Step by step in plain English.",
+
+  "installCommand": "the actual install command from README or package.json scripts if available, else null",
+
+  "runCommand": "the actual run/start command from scripts or README if available, else null",
+
+  "openSourceLicense": "${info.license || 'Unknown'}",
+
+  "funFact": "One genuinely interesting or surprising specific thing about THIS project based on its commits, structure, or README.",
+
+  "projectHealthScore": {
+    "hasReadme": ${readmeContent ? 'true' : 'false'},
+    "hasTests": ${folderStructure.hasTests},
+    "hasCICD": ${folderStructure.hasCI},
+    "hasDocker": ${folderStructure.hasDocker},
+    "hasLicense": ${info.license ? 'true' : 'false'},
+    "recentlyUpdated": ${info.pushedAt ? (new Date() - new Date(info.pushedAt) < 6 * 30 * 24 * 60 * 60 * 1000 ? 'true' : 'false') : 'false'},
+    "score": "calculate: each true = 1 point, max 6, return as X/6",
+    "rating": "Excellent (5-6) / Good (3-4) / Needs Work (1-2)"
+  }
 }`;
 
   try {
@@ -134,11 +240,11 @@ Return ONLY this raw JSON, no markdown, no backticks:
         messages: [
           { 
             role: 'system', 
-            content: 'You are a technical analyst who explains real GitHub projects. You always read the README carefully and describe what the project ACTUALLY does. You never give generic descriptions. You never describe GitHub features. You only describe the specific project you are analyzing. Respond ONLY with raw valid JSON. No markdown. No backticks. No extra text.' 
+            content: systemPrompt
           },
           { 
             role: 'user', 
-            content: prompt 
+            content: userPrompt
           }
         ],
         temperature: 0.7,
