@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import { getRecentAnalyses, getPopularAnalyses } from '../services/api.js';
 
 function Hero({ onAnalyze, isLoading }) {
   const [url, setUrl] = useState('');
@@ -68,12 +68,12 @@ function Hero({ onAnalyze, isLoading }) {
   useEffect(() => {
     async function fetchHistory() {
       try {
-        const [recentRes, popularRes] = await Promise.all([
-          axios.get('/api/history/recent'),
-          axios.get('/api/history/popular')
+        const [recentData, popularData] = await Promise.all([
+          getRecentAnalyses(),
+          getPopularAnalyses()
         ]);
-        setRecent(recentRes.data || []);
-        setPopular(popularRes.data || []);
+        setRecent(recentData || []);
+        setPopular(popularData || []);
       } catch (err) {
         console.error('Failed to load analysis history:', err);
       } finally {
