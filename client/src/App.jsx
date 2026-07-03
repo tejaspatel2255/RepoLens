@@ -1,6 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Navbar from './components/Navbar.jsx';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import Home from './pages/Home.jsx';
 import Report from './pages/Report.jsx';
 
@@ -76,20 +75,13 @@ function NotFound() {
 
 function App() {
   return (
-    <Router>
-      <div className="app-container">
-        {/* Navbar rendered on all views */}
-        <Navbar />
-        
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/report/:id" element={<Report />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/report/:id" element={<Report />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
