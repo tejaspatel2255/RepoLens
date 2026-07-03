@@ -2,79 +2,100 @@ import axios from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-const API = axios.create({
+console.log('API Base URL:', BASE_URL);
+
+const api = axios.create({
   baseURL: BASE_URL,
+  timeout: 120000,
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-/**
- * 1. Fetch GitHub repo data
- *    Route returns { success, repoData } — we unwrap repoData here
- */
-export async function fetchGithubData(repoUrl) {
-  console.log('[API] Fetching GitHub data for:', repoUrl);
+// Request interceptor for logging
+api.interceptors.request.use(config => {
+  console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+  return config;
+});
+
+// Response interceptor for logging
+api.interceptors.response.use(
+  response => {
+    console.log(`API Response: ${response.status} ${response.config.url}`);
+    return response;
+  },
+  error => {
+    console.error(`API Error: ${error.response?.status} ${error.config?.url}`);
+    console.error('Error data:', error.response?.data);
+    return Promise.reject(error);
+  }
+);
+
+export const fetchGithubData = async (repoUrl) => {
   try {
-    const response = await API.post('/github/fetch', { repoUrl });
-    console.log('[API] GitHub data received for:', response.data?.repoData?.owner + '/' + response.data?.repoData?.repo);
+    console.log('Fetching GitHub data for:', repoUrl);
+    const response = await api.post('/github/fetch', { repoUrl });
+    console.log('GitHub data received for:', response.data.repoData?.owner + '/' + response.data.repoData?.repo);
     return response.data.repoData;
   } catch (error) {
-    console.error('[API] fetchGithubData error:', error.response?.data);
-    throw new Error(
-      error.response?.data?.error ||
-      'Failed to fetch repository. Check the URL and try again.'
-    );
+    const msg = error.response?.data?.error || error.message || 'Failed to fetch repository';
+    console.error('fetchGithubData failed:', msg);
+    throw new Error(msg);
   }
-}
+};
 
-/**
- * 2. Analyze repository (runs AI generation and saves to Supabase)
- *    Route returns { success, aiAnalysis, analysisId }
- */
-export async function analyzeRepo(repoData) {
-  console.log('[API] Sending repoData to /analyze for:', repoData?.owner + '/' + repoData?.repo);
+export const analyzeRepo = async (repoData) => {
   try {
-    const response = await API.post('/analyze', { repoData });
+    console.log('Sending repoData for AI analysis:', repoData.owner + '/' + repoData.repo);
+    const response = await api.post('/analyze', { repoData });
+    console.log('Analysis received, ID:', response.data.analysisId);
     return response.data;
   } catch (error) {
-    console.error('[API] analyzeRepo error:', error.response?.data);
-    throw new Error(
-      error.response?.data?.error ||
-      'AI analysis failed. Please try again.'
-    );
+    const msg = error.response?.data?.error || error.message || 'AI analysis failed';
+    console.error('analyzeRepo failed:', msg);
+    throw new Error(msg);
   }
-}
+};
 
-/**
- * 3. Fetch recent analyses list
- */
-export async function getRecentAnalyses() {
-  const response = await API.get('/history/recent');
-  return response.data;
-}
+export const getAnalysisById = async (id) => {
+  try {
+    const response = await api.get(`/history/${id}`);
+    return response.data;
+  } catch (error) {
+    const msg = error.response?.data?.error || error.message || 'Analysis not found';
+    throw new Error(msg);
+  }
+};
 
-/**
- * 4. Fetch popular analyses list
- */
-export async function getPopularAnalyses() {
-  const response = await API.get('/history/popular');
-  return response.data;
-}
+export const getRecentAnalyses = async () => {
+  try {
+    const response = await api.get('/history/recent');
+    return response.data;
+  } catch (error) {
+    console.error('getRecentAnalyses failed:', error.message);
+    return [];
+  }
+};
 
-/**
- * 5. Fetch a single saved analysis by UUID
- */
-export async function getAnalysisById(id) {
-  const response = await API.get(`/history/${id}`);
-  return response.data;
-}
+export const getPopularAnalyses = async () => {
+  try {
+    const response = await api.get('/history/popular');
+    return response.data;
+  } catch (error) {
+    console.error('getPopularAnalyses failed:', error.message);
+    return [];
+  }
+};
 
-/**
- * 6. Full pipeline: fetch GitHub data then analyze
- */
-export async function analyzeFromUrl(repoUrl) {
+export const analyzeFromUrl = async (repoUrl) => {
+  console.log('=== FULL ANALYSIS STARTED ===');
+  console.log('URL:', repoUrl);
+
   const repoData = await fetchGithubData(repoUrl);
-  const { aiAnalysis, analysisId } = await analyzeRepo(repoData);
-  return { repoData, aiAnalysis, analysisId };
-}
+  console.log('Step 1 done: GitHub data fetched');
+
+  const result = await analyzeRepo(repoData);
+  console.log('Step 2 done: AI analysis complete');
+
+  return result;
+};

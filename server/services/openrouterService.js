@@ -1,12 +1,6 @@
 import axios from 'axios';
 
-/**
- * Analyze a repository using OpenRouter AI.
- * Uses a free model to avoid credit issues on Vercel.
- * Prompt is trimmed to stay within Vercel's 10s timeout.
- * Throws on any failure — no silent fallbacks.
- */
-export async function analyzeRepo(repoData) {
+export const analyzeRepo = async (repoData) => {
   const {
     owner,
     repo,
@@ -20,116 +14,210 @@ export async function analyzeRepo(repoData) {
     folderStructure = {}
   } = repoData;
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-
   console.log('=== OPENROUTER CALLED ===');
-  console.log('Key exists:', !!apiKey);
-  console.log('Key preview:', apiKey ? apiKey.slice(0, 15) + '...' : 'NOT SET');
-  console.log('Repo:', `${owner}/${repo}`);
+  console.log('Repo:', owner + '/' + repo);
+  console.log('Key exists:', !!process.env.OPENROUTER_API_KEY);
+  console.log('Key preview:', process.env.OPENROUTER_API_KEY?.slice(0, 20));
 
-  if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is not set in environment variables.');
+  if (!process.env.OPENROUTER_API_KEY) {
+    throw new Error('OPENROUTER_API_KEY is not configured on the server');
   }
 
-  // ── Trim inputs to fit within Vercel's 10s function timeout ──
-  const readmeSlice = readme ? readme.slice(0, 1500) : 'No README found';
-  const pathsSlice = (folderStructure.allPaths || []).slice(0, 20).join(', ');
-  const commitsSlice = (commits || []).slice(0, 10).map((c, i) => `${i + 1}. ${c.message}`).join('\n');
-  const languagesStr = (languages || []).map(l => `${l.name}: ${l.percentage}%`).join(', ') || 'Unknown';
-  const depsStr = Object.keys(packageInfo.dependencies || {}).slice(0, 20).join(', ') || 'unknown';
-  const devDepsStr = Object.keys(packageInfo.devDependencies || {}).slice(0, 10).join(', ') || 'unknown';
-  const scriptsStr = Object.keys(packageInfo.scripts || {}).join(', ') || 'unknown';
-  const rootFiles = (contents || []).map(c => c.name).join(', ');
+  // Build context strings
+  const languageStr = languages.length
+    ? languages.map(l => `${l.name}: ${l.percentage}%`).join(', ')
+    : info.language || 'Unknown';
 
-  const hasReadme = !!readme;
-  const hasTests = folderStructure.hasTests ?? false;
-  const hasCI = folderStructure.hasCI ?? false;
-  const hasDocker = folderStructure.hasDocker ?? false;
-  const hasLicense = !!info.license;
-  const recentlyUpdated = info.pushedAt
-    ? (new Date() - new Date(info.pushedAt) < 6 * 30 * 24 * 60 * 60 * 1000)
-    : false;
+  const commitStr = commits.length
+    ? commits.slice(0, 10).map((c, i) => `${i + 1}. [${(c.date || '').slice(0, 10)}] ${c.message}`).join('\n')
+    : 'No commits available';
 
-  const prompt = `Analyze this GitHub repository and return ONLY a raw JSON object. No markdown. No backticks. No explanation. Just the JSON.
+  const depsStr = packageInfo.dependencies
+    ? Object.keys(packageInfo.dependencies).slice(0, 20).join(', ')
+    : 'Not detected';
 
-Repository: ${owner}/${repo}
-Description: ${info.description || 'None'}
-Stars: ${info.stars ?? 0} | Forks: ${info.forks ?? 0}
-Language: ${info.language || 'Unknown'}
+  const devDepsStr = packageInfo.devDependencies
+    ? Object.keys(packageInfo.devDependencies).slice(0, 15).join(', ')
+    : 'Not detected';
+
+  const scriptsStr = packageInfo.scripts
+    ? Object.keys(packageInfo.scripts).join(', ')
+    : 'Not detected';
+
+  const rootFiles = contents.length
+    ? contents.map(c => c.type === 'dir' ? c.name + '/' : c.name).join(', ')
+    : 'Not available';
+
+  const fileTreeStr = folderStructure.allPaths
+    ? folderStructure.allPaths.slice(0, 30).join('\n')
+    : 'Not available';
+
+  const readmeSnippet = readme
+    ? readme.slice(0, 2000)
+    : 'No README found - infer from structure and commits';
+
+  const contributorStr = contributors.length
+    ? contributors.map(c => `${c.login} (${c.contributions} commits)`).join(', ')
+    : 'Not available';
+
+  const prompt = `You are analyzing a real GitHub repository. 
+Read ALL the data carefully before responding.
+Your response must be 100% specific to THIS repository only.
+NEVER say generic things like "Repository Metadata Aggregation" or describe GitHub features.
+Respond ONLY with a raw JSON object. No markdown. No backticks. No text outside the JSON.
+
+=== REPOSITORY DATA ===
+
+Name: ${owner}/${repo}
+Description: ${info.description || 'No description provided'}
 Topics: ${(info.topics || []).join(', ') || 'None'}
-Created: ${info.createdAt || 'Unknown'} | Last Push: ${info.pushedAt || 'Unknown'}
+Stars: ${info.stars || 0} | Forks: ${info.forks || 0} | Watchers: ${info.watchers || 0}
+Open Issues: ${info.openIssues || 0}
+Primary Language: ${info.language || 'Unknown'}
+License: ${info.license || 'Not specified'}
+Created: ${info.createdAt || 'Unknown'}
+Last Push: ${info.pushedAt || 'Unknown'}
+Homepage: ${info.homepage || 'None'}
+Is Fork: ${info.isFork || false}
+Is Archived: ${info.isArchived || false}
 
-Languages: ${languagesStr}
-Dependencies: ${depsStr}
-Dev Dependencies: ${devDepsStr}
-Scripts: ${scriptsStr}
+Language Breakdown:
+${languageStr}
 
-Folder flags: Tests=${hasTests} | CI=${hasCI} | Docker=${hasDocker}
-Root files: ${rootFiles}
-File tree: ${pathsSlice}
+Top Contributors:
+${contributorStr}
 
-Last 10 commits:
-${commitsSlice}
+Root Files and Folders:
+${rootFiles}
 
-README (first 1500 chars):
-${readmeSlice}
+Full File Tree (read carefully - reveals project structure):
+${fileTreeStr}
 
-Return this exact JSON:
+Project Structure Flags:
+- Has Tests: ${folderStructure.hasTests || false}
+- Has CI/CD: ${folderStructure.hasCI || false}
+- Has Docker: ${folderStructure.hasDocker || false}
+- Has Database Migrations: ${folderStructure.hasMigrations || false}
+- Has React Components: ${folderStructure.hasComponents || false}
+- Has API Routes: ${folderStructure.hasAPI || false}
+- Has Docs: ${folderStructure.hasDocs || false}
+
+Package Info:
+- Name: ${packageInfo.name || 'Unknown'}
+- Version: ${packageInfo.version || 'Unknown'}
+- Main Dependencies: ${depsStr}
+- Dev Dependencies: ${devDepsStr}
+- Available Scripts: ${scriptsStr}
+
+Last 10 Commits (VERY IMPORTANT - reveals what was built):
+${commitStr}
+
+README Content (MOST IMPORTANT - read every word):
+${readmeSnippet}
+
+=== YOUR TASK ===
+Based on all the above data, return this exact JSON.
+Every single field must describe THIS specific repository.
+Do NOT use generic descriptions.
+Do NOT describe GitHub or version control in general.
+Only describe what THIS project actually does.
+
 {
-  "tagline": "specific one line what this project does",
-  "whatItDoes": "3 paragraphs explaining this project to a non-technical person",
-  "problemItSolves": "exact problem this project solves",
-  "whoIsItFor": "specific target user",
-  "realWorldUseCase": "realistic story of someone using this",
-  "keyFeatures": ["feature 1", "feature 2", "feature 3", "feature 4", "feature 5"],
+  "tagline": "One specific sentence (max 15 words) about what THIS project does for users",
+
+  "whatItDoes": "Write exactly 3 paragraphs. Paragraph 1: what this specific project is and its main purpose. Paragraph 2: what real problem it solves and for whom. Paragraph 3: how a typical user interacts with it day to day. Be completely specific to this repo.",
+
+  "problemItSolves": "The exact real-world problem THIS project addresses in 1-2 sentences",
+
+  "whoIsItFor": "The precise type of person or team who would use THIS tool specifically",
+
+  "realWorldUseCase": "Tell a specific story: A [type of person] uses [repo name] to [do specific thing] so that [specific result]. Must be realistic and specific.",
+
+  "keyFeatures": [
+    "Specific feature 1 found in README or codebase",
+    "Specific feature 2 found in README or codebase", 
+    "Specific feature 3 found in README or codebase",
+    "Specific feature 4 found in README or codebase",
+    "Specific feature 5 found in README or codebase"
+  ],
+
   "techStack": [
-    {"name": "tech name", "role": "what it does", "icon": "emoji", "category": "Frontend/Backend/Database/DevOps/Testing/AI/Other", "learnMore": "why chosen"}
+    {
+      "name": "Exact technology name",
+      "role": "What this technology specifically does in THIS project",
+      "icon": "relevant emoji",
+      "category": "Frontend or Backend or Database or DevOps or Testing or AI or Other",
+      "learnMore": "One sentence on why this tech was likely chosen for this project"
+    }
   ],
+
   "folderStructure": [
-    {"name": "folder or file", "type": "folder or file", "purpose": "what this does"}
+    {
+      "name": "actual folder or file name from the tree",
+      "type": "folder or file",
+      "purpose": "plain English explanation of what this does in the project"
+    }
   ],
+
   "howItWorks": [
-    {"step": 1, "title": "step title", "description": "what happens"}
+    {
+      "step": 1,
+      "title": "Specific step title for THIS project",
+      "description": "Exactly what happens in this step in THIS project specifically"
+    }
   ],
-  "architectureType": "Monolith/Microservices/Serverless/JAMstack/MVC/etc",
-  "projectType": "Web App/CLI Tool/Library/API/Mobile App/DevOps Tool/AI Tool/Game/Other",
-  "difficultyToUse": "Easy/Moderate/Technical",
-  "difficultyToContribute": "Beginner Friendly/Intermediate/Expert Only",
-  "maturityLevel": "Experimental/Active Development/Stable/Mature/Abandoned",
-  "similarTo": "This is like [real app] but [specific difference]",
-  "gettingStarted": "how to start using this project",
-  "installCommand": "actual install command or null",
-  "runCommand": "actual run command or null",
-  "openSourceLicense": "${info.license || 'Unknown'}",
-  "funFact": "one interesting specific thing about this project",
-  "hasTests": ${hasTests},
-  "hasDocker": ${hasDocker},
-  "hasCICD": ${hasCI},
+
+  "architectureType": "Monolith or Microservices or Serverless or JAMstack or MVC or REST API or Other",
+
+  "projectType": "Web App or CLI Tool or Library or API or Mobile App or DevOps Tool or AI Tool or Game or Browser Extension or Other",
+
+  "difficultyToUse": "Easy or Moderate or Technical",
+
+  "difficultyToContribute": "Beginner Friendly or Intermediate or Expert Only",
+
+  "maturityLevel": "Experimental or Active Development or Stable or Mature or Abandoned",
+
+  "similarTo": "This is like [real well-known app or tool] but [specific difference based on this repo]",
+
+  "gettingStarted": "Exact steps to start using this project based on README and package scripts. Plain English.",
+
+  "installCommand": "actual npm install or pip install command if found, otherwise null",
+
+  "runCommand": "actual npm start or npm run dev command if found, otherwise null",
+
+  "openSourceLicense": "${info.license || 'Not specified'}",
+
+  "funFact": "One genuinely interesting or surprising fact specific to THIS project based on commits, structure, or README",
+
+  "hasTests": ${folderStructure.hasTests || false},
+  "hasDocker": ${folderStructure.hasDocker || false},
+  "hasCICD": ${folderStructure.hasCI || false},
+
   "projectHealthScore": {
-    "hasReadme": ${hasReadme},
-    "hasTests": ${hasTests},
-    "hasCICD": ${hasCI},
-    "hasDocker": ${hasDocker},
-    "hasLicense": ${hasLicense},
-    "recentlyUpdated": ${recentlyUpdated},
+    "hasReadme": ${!!readme},
+    "hasTests": ${folderStructure.hasTests || false},
+    "hasCICD": ${folderStructure.hasCI || false},
+    "hasDocker": ${folderStructure.hasDocker || false},
+    "hasLicense": ${!!info.license},
+    "recentlyUpdated": ${!!info.pushedAt},
     "score": "0/6",
     "rating": "Needs Work"
   }
-}`;
+}`
 
-  console.log('Model: meta-llama/llama-3.1-8b-instruct:free');
-  console.log('Prompt length:', prompt.length, 'chars');
+  console.log('Prompt length (chars):', prompt.length);
+  console.log('Sending to OpenRouter with model: google/gemini-flash-1.5...');
 
   let response;
   try {
     response = await axios.post(
       'https://openrouter.ai/api/v1/chat/completions',
       {
-        model: 'meta-llama/llama-3.1-8b-instruct:free',
+        model: 'google/gemini-flash-1.5',
         messages: [
           {
             role: 'system',
-            content: 'You are a software analyst. Respond ONLY with raw valid JSON. No markdown. No backticks. No explanation before or after the JSON.'
+            content: 'You are a software analyst. Respond ONLY with raw valid JSON. No markdown. No backticks. No text before or after the JSON object.'
           },
           {
             role: 'user',
@@ -141,7 +229,7 @@ Return this exact JSON:
       },
       {
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': 'https://repo-lens-client.vercel.app',
           'X-Title': 'RepoLens'
@@ -149,29 +237,55 @@ Return this exact JSON:
         timeout: 55000
       }
     );
-  } catch (err) {
-    console.error('=== OPENROUTER REQUEST FAILED ===');
-    console.error('Message:', err.message);
-    console.error('Status:', err.response?.status);
-    console.error('Data:', JSON.stringify(err.response?.data));
-    throw err;
+  } catch (apiError) {
+    console.error('=== OPENROUTER API CALL FAILED ===');
+    console.error('Status:', apiError.response?.status);
+    console.error('Data:', JSON.stringify(apiError.response?.data));
+    console.error('Message:', apiError.message);
+
+    // If Gemini Flash fails try free fallback model
+    if (apiError.response?.status === 429 || apiError.response?.status === 402) {
+      console.log('Trying fallback model: meta-llama/llama-3.1-8b-instruct:free');
+      response = await axios.post(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          model: 'meta-llama/llama-3.1-8b-instruct:free',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a software analyst. Respond ONLY with raw valid JSON. No markdown. No backticks.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 3000,
+          temperature: 0.7
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://repo-lens-client.vercel.app',
+            'X-Title': 'RepoLens'
+          },
+          timeout: 55000
+        }
+      );
+    } else {
+      throw apiError;
+    }
   }
 
-  console.log('=== OPENROUTER RESPONSE RECEIVED ===');
-  console.log('Status:', response.status);
+  console.log('OpenRouter response status:', response.status);
   console.log('Model used:', response.data.model);
   console.log('Usage:', JSON.stringify(response.data.usage));
 
-  const content = response.data.choices?.[0]?.message?.content;
+  const content = response.data.choices[0].message.content;
+  console.log('Raw AI response (first 400 chars):', content.slice(0, 400));
 
-  if (!content) {
-    console.error('Empty response from OpenRouter:', JSON.stringify(response.data));
-    throw new Error('OpenRouter returned an empty response');
-  }
-
-  console.log('Response preview (first 300 chars):', content.slice(0, 300));
-
-  // Strip any accidental markdown fences
+  // Clean response
   const cleaned = content
     .replace(/```json/gi, '')
     .replace(/```/g, '')
@@ -181,30 +295,38 @@ Return this exact JSON:
   const jsonEnd = cleaned.lastIndexOf('}');
 
   if (jsonStart === -1 || jsonEnd === -1) {
-    console.error('Full AI response that failed to parse:', content);
+    console.error('No valid JSON in response. Full content:', cleaned);
     throw new Error('AI response did not contain valid JSON');
   }
 
   const jsonString = cleaned.slice(jsonStart, jsonEnd + 1);
-  const parsed = JSON.parse(jsonString);
+  let parsed;
 
-  // Compute actual health score from real booleans
-  const health = parsed.projectHealthScore || {};
-  const healthFields = [
-    health.hasReadme,
-    health.hasTests,
-    health.hasCICD,
-    health.hasDocker,
-    health.hasLicense,
-    health.recentlyUpdated
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (parseError) {
+    console.error('JSON parse failed:', parseError.message);
+    console.error('JSON string:', jsonString.slice(0, 500));
+    throw new Error('Failed to parse AI response as JSON: ' + parseError.message);
+  }
+
+  // Calculate real health score
+  const healthChecks = [
+    parsed.projectHealthScore?.hasReadme,
+    parsed.projectHealthScore?.hasTests,
+    parsed.projectHealthScore?.hasCICD,
+    parsed.projectHealthScore?.hasDocker,
+    parsed.projectHealthScore?.hasLicense,
+    parsed.projectHealthScore?.recentlyUpdated
   ];
-  const score = healthFields.filter(Boolean).length;
+  const score = healthChecks.filter(Boolean).length;
   parsed.projectHealthScore.score = `${score}/6`;
   parsed.projectHealthScore.rating =
-    score >= 5 ? 'Excellent' : score >= 3 ? 'Good' : 'Needs Work';
+    score >= 5 ? 'Excellent' :
+    score >= 3 ? 'Good' :
+    'Needs Work';
 
-  console.log('=== AI ANALYSIS COMPLETE ===');
-  console.log('Health score:', parsed.projectHealthScore.score, '-', parsed.projectHealthScore.rating);
-
+  console.log('=== ANALYSIS COMPLETE ===');
+  console.log('Health score:', parsed.projectHealthScore.score);
   return parsed;
-}
+};
