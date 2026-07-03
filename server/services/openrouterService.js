@@ -206,14 +206,14 @@ Only describe what THIS project actually does.
 }`
 
   console.log('Prompt length (chars):', prompt.length);
-  console.log('Sending to OpenRouter with model: google/gemini-flash-1.5...');
+  console.log('Sending to OpenRouter with model: google/gemini-2.5-flash...');
 
   let response;
   try {
     response = await axios.post(
       'https://openrouter.ai/api/v1/chat/completions',
       {
-        model: 'google/gemini-flash-1.5',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'system',
@@ -224,7 +224,7 @@ Only describe what THIS project actually does.
             content: prompt
           }
         ],
-        max_tokens: 3000,
+        max_tokens: 4000,
         temperature: 0.7
       },
       {
@@ -245,11 +245,11 @@ Only describe what THIS project actually does.
 
     // If Gemini Flash fails try free fallback model
     if (apiError.response?.status === 429 || apiError.response?.status === 402) {
-      console.log('Trying fallback model: meta-llama/llama-3.1-8b-instruct:free');
+      console.log('Trying fallback model: google/gemma-4-31b-it:free');
       response = await axios.post(
         'https://openrouter.ai/api/v1/chat/completions',
         {
-          model: 'meta-llama/llama-3.1-8b-instruct:free',
+          model: 'google/gemma-4-31b-it:free',
           messages: [
             {
               role: 'system',
@@ -260,7 +260,7 @@ Only describe what THIS project actually does.
               content: prompt
             }
           ],
-          max_tokens: 3000,
+          max_tokens: 4000,
           temperature: 0.7
         },
         {
@@ -306,7 +306,17 @@ Only describe what THIS project actually does.
     parsed = JSON.parse(jsonString);
   } catch (parseError) {
     console.error('JSON parse failed:', parseError.message);
-    console.error('JSON string:', jsonString.slice(0, 500));
+    console.error('Full JSON string:');
+    console.error(jsonString);
+    const match = parseError.message.match(/at position (\d+)/);
+    if (match) {
+      const pos = parseInt(match[1], 10);
+      const start = Math.max(0, pos - 150);
+      const end = Math.min(jsonString.length, pos + 150);
+      console.error('--- ERROR CONTEXT ---');
+      console.error(jsonString.slice(start, pos) + ' >>>HERE>>> ' + jsonString.slice(pos, end));
+      console.error('----------------------');
+    }
     throw new Error('Failed to parse AI response as JSON: ' + parseError.message);
   }
 
