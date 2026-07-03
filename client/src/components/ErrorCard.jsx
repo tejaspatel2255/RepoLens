@@ -6,7 +6,8 @@ function ErrorCard({ error, onRetry }) {
   let iconClass = 'fa-solid fa-triangle-exclamation';
   let colorVar = 'var(--accent-orange)';
 
-  const errMessage = (typeof error === 'string' ? error : error?.message || '').toLowerCase();
+  const rawMessage = typeof error === 'string' ? error : error?.message || '';
+  const errMessage = rawMessage.toLowerCase();
   const statusCode = error?.status || error?.statusCode;
 
   if (errMessage.includes('rate limit') || errMessage.includes('403') || statusCode === 403) {
@@ -30,8 +31,7 @@ function ErrorCard({ error, onRetry }) {
     iconClass = 'fa-solid fa-robot';
     colorVar = 'var(--accent-purple)';
   } else {
-    // General fallback
-    subtitle = error?.message || error || 'Something went wrong while executing the requested action.';
+    subtitle = rawMessage || 'Something went wrong while executing the requested action.';
   }
 
   return (
@@ -43,6 +43,13 @@ function ErrorCard({ error, onRetry }) {
         
         <h3 className="error-title">{title}</h3>
         <p className="error-subtitle">{subtitle}</p>
+
+        {rawMessage && (
+          <div className="error-details">
+            <strong>Error Details:</strong>
+            <p>{rawMessage}</p>
+          </div>
+        )}
 
         {onRetry && (
           <button onClick={onRetry} className="btn btn-primary error-retry-btn">
@@ -82,7 +89,6 @@ function ErrorCard({ error, onRetry }) {
           justify-content: center;
           font-size: 1.8rem;
           margin-bottom: 24px;
-          background-color: rgba(247, 129, 102, 0.1);
         }
 
         .error-title {
@@ -96,7 +102,31 @@ function ErrorCard({ error, onRetry }) {
           font-size: 0.92rem;
           line-height: 1.5;
           color: var(--text-secondary);
-          margin-bottom: 30px;
+          margin-bottom: 20px;
+        }
+
+        .error-details {
+          width: 100%;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          padding: 12px;
+          margin-bottom: 24px;
+          text-align: left;
+          font-size: 0.8rem;
+          color: var(--text-secondary);
+          word-break: break-word;
+        }
+
+        .error-details strong {
+          color: var(--text-primary);
+          display: block;
+          margin-bottom: 4px;
+        }
+
+        .error-details p {
+          margin: 0;
+          font-family: monospace;
         }
 
         .error-retry-btn {
