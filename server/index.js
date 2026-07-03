@@ -67,6 +67,18 @@ app.get('/health', (req, res) => {
   res.json({ status: "ok", timestamp: new Date() });
 });
 
+// Debug endpoint — verify env vars are loaded (safe: only shows presence, not values)
+app.get('/debug', (req, res) => {
+  res.json({
+    hasOpenRouterKey: !!process.env.OPENROUTER_API_KEY,
+    keyPrefix: process.env.OPENROUTER_API_KEY ? process.env.OPENROUTER_API_KEY.slice(0, 15) + '...' : 'NOT SET',
+    hasSupabaseUrl: !!process.env.SUPABASE_URL,
+    hasSupabaseKey: !!process.env.SUPABASE_SERVICE_KEY,
+    nodeEnv: process.env.NODE_ENV || 'not set',
+    port: process.env.PORT || '5000 (default)'
+  });
+});
+
 // API Routes
 app.use('/api/github', githubRouter);
 app.use('/api/analyze', analyzeLimiter, analyzeRouter); // Applied AI rate limiter here
