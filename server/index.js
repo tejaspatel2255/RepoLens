@@ -19,9 +19,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // CORS configuration matching specified clients
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 app.use(cors({
-  origin: [clientUrl, 'https://your-frontend.netlify.app'],
+  origin: [
+    'http://localhost:5173',
+    'https://repo-lens-client.vercel.app',
+    process.env.CLIENT_URL
+  ].filter(Boolean),
   credentials: true
 }));
 
@@ -54,9 +57,14 @@ const analyzeLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ message: "RepoLens API is running" });
+});
+
 // Base health check
 app.get('/health', (req, res) => {
-  res.json({ status: "ok", message: "RepoLens server is healthy" });
+  res.json({ status: "ok", timestamp: new Date() });
 });
 
 // API Routes
