@@ -47,7 +47,11 @@ export async function saveAnalysis(repoData, aiAnalysis) {
     commits: repoData.commits,
     contents: repoData.contents,
     readme: repoData.readme,
-    ai_analysis: aiAnalysis,
+    ai_analysis: {
+      ...aiAnalysis,
+      repo_created_at: repoData.info.createdAt,
+      homepage: repoData.info.homepage
+    },
     updated_at: new Date().toISOString()
   };
 

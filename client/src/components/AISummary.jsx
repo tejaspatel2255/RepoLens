@@ -11,55 +11,141 @@ function AISummary({ aiAnalysis, info }) {
     ));
   };
 
-  // Helper colors for badges
-  const getDifficultyColor = (diff) => {
-    switch (diff?.toLowerCase()) {
-      case 'easy': return 'badge-green';
-      case 'moderate': return 'badge-yellow';
-      case 'technical': return 'badge-orange';
-      default: return 'badge-gray';
+  const getProjectTypeBadge = (type) => {
+    if (!type) return null;
+    let bgClass = 'badge-gray';
+    let emoji = '📦';
+    const typeLower = type.toLowerCase();
+    
+    if (typeLower.includes('library')) {
+      bgClass = 'badge-purple';
+      emoji = '📚';
+    } else if (typeLower.includes('web app') || typeLower.includes('website')) {
+      bgClass = 'badge-blue';
+      emoji = '🌐';
+    } else if (typeLower.includes('cli tool') || typeLower.includes('command line') || typeLower.includes('cli')) {
+      bgClass = 'badge-green';
+      emoji = '⚡';
+    } else if (typeLower.includes('api')) {
+      bgClass = 'badge-orange';
+      emoji = '🔌';
+    } else if (typeLower.includes('mobile')) {
+      bgClass = 'badge-purple';
+      emoji = '📱';
+    } else if (typeLower.includes('devops')) {
+      bgClass = 'badge-blue';
+      emoji = '⚙️';
+    } else if (typeLower.includes('ai')) {
+      bgClass = 'badge-orange';
+      emoji = '🤖';
     }
+    
+    return (
+      <span className={`summary-badge ${bgClass}`}>
+        <span className="badge-emoji">{emoji}</span> {type}
+      </span>
+    );
   };
 
-  const getMaturityColor = (mat) => {
-    switch (mat?.toLowerCase()) {
-      case 'stable':
-      case 'mature': return 'badge-green';
-      case 'active development': return 'badge-blue';
-      case 'experimental': return 'badge-purple';
-      default: return 'badge-gray';
+  const getDifficultyBadge = (difficulty) => {
+    if (!difficulty) return null;
+    let bgClass = 'badge-gray';
+    let emoji = '⚙️';
+    const diffLower = difficulty.toLowerCase();
+    
+    if (diffLower === 'easy') {
+      bgClass = 'badge-green';
+      emoji = '✅';
+    } else if (diffLower === 'moderate') {
+      bgClass = 'badge-yellow';
+      emoji = '⚠️';
+    } else if (diffLower === 'technical') {
+      bgClass = 'badge-red';
+      emoji = '🚨';
     }
+    
+    return (
+      <span className={`summary-badge ${bgClass}`}>
+        <span className="badge-emoji">{emoji}</span> {difficulty}
+      </span>
+    );
+  };
+
+  const getMaturityBadge = (maturity) => {
+    if (!maturity) return null;
+    let bgClass = 'badge-gray';
+    let emoji = '🌱';
+    const matLower = maturity.toLowerCase();
+    
+    if (matLower === 'experimental') {
+      bgClass = 'badge-orange';
+      emoji = '🧪';
+    } else if (matLower === 'active development') {
+      bgClass = 'badge-blue';
+      emoji = '🔨';
+    } else if (matLower === 'stable') {
+      bgClass = 'badge-green';
+      emoji = '🚀';
+    } else if (matLower === 'mature') {
+      bgClass = 'badge-teal';
+      emoji = '🌳';
+    }
+    
+    return (
+      <span className={`summary-badge ${bgClass}`}>
+        <span className="badge-emoji">{emoji}</span> {maturity}
+      </span>
+    );
   };
 
   return (
     <div className="ai-summary-card card animate-fade">
       {/* 1. Header & Title details */}
       <div className="summary-header">
-        <h1 className="repo-title">
-          <i className="fa-brands fa-github repo-icon"></i> {info?.name || 'Repository'}
+        {info?.owner && (
+          <div className="repo-owner-label">by {info.owner}</div>
+        )}
+        <h1 className="repo-title-container">
+          <i className="fa-brands fa-github repo-icon"></i>
+          <span className="repo-title-text">{info?.name || 'Repository'}</span>
+          {info?.stars !== undefined && info?.stars !== null && (
+            <span className="star-badge-glow">⭐ {info.stars.toLocaleString()}</span>
+          )}
         </h1>
         {aiAnalysis.tagline && (
           <h2 className="repo-tagline">{aiAnalysis.tagline}</h2>
         )}
+
+        {/* Hero link buttons */}
+        <div className="hero-buttons-row">
+          {info?.repoUrl && (
+            <a 
+              href={info.repoUrl} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="btn btn-github-hero"
+            >
+              🔗 View on GitHub
+            </a>
+          )}
+          {info?.homepage && (
+            <a 
+              href={info.homepage} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="btn btn-homepage-hero"
+            >
+              🌐 Visit Homepage
+            </a>
+          )}
+        </div>
       </div>
 
       {/* 2. Badge Metadata Row */}
       <div className="badge-row">
-        {aiAnalysis.projectType && (
-          <span className="summary-badge badge-blue">
-            <i className="fa-solid fa-shapes"></i> {aiAnalysis.projectType}
-          </span>
-        )}
-        {aiAnalysis.difficultyToUse && (
-          <span className={`summary-badge ${getDifficultyColor(aiAnalysis.difficultyToUse)}`}>
-            <i className="fa-solid fa-gauge"></i> {aiAnalysis.difficultyToUse}
-          </span>
-        )}
-        {aiAnalysis.maturityLevel && (
-          <span className={`summary-badge ${getMaturityColor(aiAnalysis.maturityLevel)}`}>
-            <i className="fa-solid fa-seedling"></i> {aiAnalysis.maturityLevel}
-          </span>
-        )}
+        {getProjectTypeBadge(aiAnalysis.projectType)}
+        {getDifficultyBadge(aiAnalysis.difficultyToUse)}
+        {getMaturityBadge(aiAnalysis.maturityLevel)}
       </div>
 
       {/* 3. SimilarTo Comparison Blockquote */}
@@ -127,19 +213,57 @@ function AISummary({ aiAnalysis, info }) {
           gap: 8px;
         }
 
-        .repo-title {
-          font-size: 2.2rem;
-          font-weight: 800;
-          letter-spacing: -0.02em;
+        .repo-owner-label {
+          font-size: 0.95rem;
+          color: #8b949e;
+          font-weight: 500;
+          margin-bottom: 2px;
+        }
+
+        .repo-title-container {
           display: flex;
           align-items: center;
           gap: 12px;
-          color: var(--text-primary);
+          flex-wrap: wrap;
+        }
+
+        .repo-title-text {
+          font-size: 2.5rem;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          background: linear-gradient(to right, #58a6ff, #bc8cff);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
 
         .repo-icon {
-          font-size: 2rem;
+          font-size: 2.2rem;
           color: var(--text-secondary);
+        }
+
+        .star-badge-glow {
+          display: inline-flex;
+          align-items: center;
+          background: rgba(227, 179, 65, 0.15);
+          color: #e3b341;
+          border: 1px solid rgba(227, 179, 65, 0.3);
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 0.95rem;
+          font-weight: 700;
+          -webkit-text-fill-color: initial;
+          box-shadow: 0 0 12px rgba(227, 179, 65, 0.3);
+          animation: star-pulse 2s infinite ease-in-out;
+        }
+
+        @keyframes star-pulse {
+          0%, 100% {
+            box-shadow: 0 0 8px rgba(227, 179, 65, 0.2);
+          }
+          50% {
+            box-shadow: 0 0 16px rgba(227, 179, 65, 0.5);
+          }
         }
 
         .repo-tagline {
@@ -147,6 +271,54 @@ function AISummary({ aiAnalysis, info }) {
           color: var(--accent-blue);
           font-weight: 600;
           line-height: 1.4;
+        }
+
+        .hero-buttons-row {
+          display: flex;
+          gap: 12px;
+          margin-top: 8px;
+          flex-wrap: wrap;
+        }
+
+        .btn-github-hero {
+          background-color: #21262d;
+          color: #c9d1d9;
+          border: 1px solid #30363d;
+          padding: 10px 18px;
+          font-size: 0.9rem;
+          font-weight: 600;
+          border-radius: 6px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+
+        .btn-github-hero:hover {
+          background-color: #30363d;
+          border-color: #8b949e;
+        }
+
+        .btn-homepage-hero {
+          background-color: #238636;
+          color: #ffffff;
+          border: 1px solid rgba(240, 246, 252, 0.1);
+          padding: 10px 18px;
+          font-size: 0.9rem;
+          font-weight: 600;
+          border-radius: 6px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+
+        .btn-homepage-hero:hover {
+          background-color: #2ea043;
         }
 
         /* Badge Row CSS styling */
@@ -161,10 +333,14 @@ function AISummary({ aiAnalysis, info }) {
           align-items: center;
           gap: 6px;
           padding: 6px 14px;
-          border-radius: 20px;
+          border-radius: 9999px;
           font-size: 0.8rem;
           font-weight: 700;
           letter-spacing: 0.02em;
+        }
+
+        .badge-emoji {
+          font-size: 0.9rem;
         }
 
         .badge-blue {
@@ -192,6 +368,16 @@ function AISummary({ aiAnalysis, info }) {
           color: var(--accent-purple);
           border: 1px solid rgba(188, 140, 255, 0.2);
         }
+        .badge-red {
+          background-color: rgba(255, 107, 107, 0.1);
+          color: #ff6b6b;
+          border: 1px solid rgba(255, 107, 107, 0.2);
+        }
+        .badge-teal {
+          background-color: rgba(46, 196, 182, 0.1);
+          color: #2ec4b6;
+          border: 1px solid rgba(46, 196, 182, 0.2);
+        }
         .badge-gray {
           background-color: rgba(139, 148, 158, 0.1);
           color: var(--text-secondary);
@@ -201,10 +387,10 @@ function AISummary({ aiAnalysis, info }) {
         /* SimilarTo blockquote */
         .similar-quote {
           position: relative;
-          background-color: var(--bg-secondary);
-          border-left: 4px solid var(--accent-purple);
+          background-color: #1c2128;
+          border-left: 4px solid #58a6ff;
           border-radius: 0 var(--radius-md) var(--radius-md) 0;
-          padding: 20px 24px 20px 48px;
+          padding: 24px 24px 24px 48px;
         }
 
         .quote-mark {
@@ -213,16 +399,16 @@ function AISummary({ aiAnalysis, info }) {
           left: 12px;
           font-size: 4rem;
           font-family: Georgia, serif;
-          color: var(--accent-purple);
+          color: #58a6ff;
           opacity: 0.3;
           line-height: 1;
           pointer-events: none;
         }
 
         .quote-content {
-          font-size: 1.05rem;
+          font-size: 1.2rem;
           font-weight: 500;
-          line-height: 1.5;
+          line-height: 1.6;
           color: var(--text-primary);
           font-style: italic;
         }

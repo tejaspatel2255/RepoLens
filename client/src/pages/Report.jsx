@@ -125,7 +125,10 @@ Analyze your own repo at: repolens.app`;
     watchers: data.watchers,
     openIssues: data.openIssues || data.open_issues || 0,
     size: data.size || 0,
-    createdAt: data.created_at,
+    createdAt: data.ai_analysis?.repo_created_at || data.created_at,
+    homepage: data.ai_analysis?.homepage || null,
+    owner: data.owner,
+    repoUrl: data.repo_url,
     pushedAt: data.updated_at || data.pushed_at
   };
 

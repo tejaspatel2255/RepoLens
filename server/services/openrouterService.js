@@ -66,52 +66,64 @@ export async function analyzeRepo(repoData) {
   const contents = repoData.contents || [];
   const readme = repoData.readme || 'No README file available.';
 
-  // Build the prompt matching your specifications
-  const prompt = `You are analyzing a GitHub repository for non-technical users.
+  const languagesStr = languages.map(l => `${l.name} (${l.percentage}%)`).join(', ');
+  const contributorLogins = contributors.map(c => c.login).join(', ');
+  const readmeContent = readme.slice(0, 4000);
+
+  const prompt = `You are analyzing a REAL GitHub repository. You must describe THIS SPECIFIC project only. Do NOT give generic software descriptions. Do NOT say things like 'Repository Metadata Aggregation' or 'Git Activity Tracking' — those are descriptions of GitHub itself, not this project.
 
 Repository: ${owner}/${repo}
 Description: ${info.description || 'No description provided.'}
 Topics: ${(info.topics || []).join(', ')}
-Stars: ${info.stars || 0} | Forks: ${info.forks || 0} | Watchers: ${info.watchers || 0}
+Stars: ${info.stars || 0} | Forks: ${info.forks || 0}
 Primary Language: ${info.language || 'Unknown'}
-Created: ${info.createdAt || 'Unknown'} | Last Push: ${info.pushedAt || 'Unknown'}
-Size: ${info.size || 0}KB | Open Issues: ${info.openIssues || 0}
-Homepage: ${info.homepage || 'None'}
+Languages used: ${languagesStr}
+Top Contributors: ${contributorLogins}
 
-Language breakdown:
-${languages.map(l => `${l.name}: ${l.percentage}%`).join('\n')}
+Last 15 commit messages (READ THESE CAREFULLY — they reveal what the project does):
+${commits.map(c => '- ' + c.message).join('\n')}
 
-Top Contributors: ${contributors.map(c => c.login).join(', ')}
+Root files/folders (READ THESE — they reveal the project structure):
+${contents.map(c => c.name).join(', ')}
 
-Last 15 commit messages:
-${commits.map(c => `- ${c.message}`).join('\n')}
+README (this is the most important — read it carefully):
+${readmeContent}
 
-Root files/folders: ${contents.map(c => c.name).join(', ')}
+STRICT RULES:
+- keyFeatures must describe what THIS app/tool ACTUALLY does for its users
+- Do NOT describe what GitHub does or what any repo generically does
+- If the README mentions specific features, use THOSE exact features
+- techStack must only include technologies actually found in this codebase
+- howItWorks must describe THIS project's actual workflow, not generic steps
+- similarTo must reference a real well-known app this resembles
+- If README is empty or unhelpful, use commit messages and folder names to infer purpose
 
-README (first 4000 chars):
-${readme}
-
-Return ONLY a valid JSON object with NO markdown formatting, NO backticks, 
-NO extra text. Just the raw JSON:
+Return ONLY this raw JSON, no markdown, no backticks:
 {
-  "tagline": "one punchy sentence (max 15 words) describing what this does",
-  "whatItDoes": "explain in 3 paragraphs what this project does for someone who has never coded",
-  "problemItSolves": "1-2 sentences on the real world problem this fixes",
-  "whoIsItFor": "describe the exact type of person who would use this",
-  "realWorldUseCase": "give a specific story example of someone using this tool",
-  "keyFeatures": ["feature 1", "feature 2", "feature 3", "feature 4", "feature 5"],
+  "tagline": "specific one-line description of what THIS project actually does",
+  "whatItDoes": "3 paragraphs explaining THIS project to a non-technical person. Be specific about what it does, not generic.",
+  "problemItSolves": "the REAL problem THIS specific project solves",
+  "whoIsItFor": "the EXACT type of person who would use THIS tool",
+  "realWorldUseCase": "a SPECIFIC realistic story of someone using THIS exact tool",
+  "keyFeatures": [
+    "Feature specific to this project",
+    "Another real feature from the README or code",
+    "Third specific feature",
+    "Fourth specific feature", 
+    "Fifth specific feature"
+  ],
   "techStack": [
-    {"name": "React", "role": "Builds the user interface", "icon": "⚛️", "category": "Frontend"}
+    {"name": "actual tech name", "role": "what it does in THIS project", "icon": "emoji", "category": "Frontend/Backend/Database/etc"}
   ],
   "howItWorks": [
-    {"step": 1, "title": "Short title", "description": "Plain English explanation of this step"}
+    {"step": 1, "title": "Specific step title", "description": "What actually happens in THIS project"}
   ],
-  "projectType": "Web App / CLI Tool / Library / API / Mobile App / DevOps Tool / AI Tool / Other",
+  "projectType": "Web App / CLI Tool / Library / API / Mobile App / DevOps Tool / AI Tool / Game / Other",
   "difficultyToUse": "Easy / Moderate / Technical",
   "maturityLevel": "Experimental / Active Development / Stable / Mature",
-  "similarTo": "This is like [well-known app] but for [specific purpose]",
-  "gettingStarted": "How would a beginner start using or contributing to this in 2-3 sentences",
-  "funFact": "one interesting or surprising thing about this project"
+  "similarTo": "This is like [real well-known app] but [specific difference]",
+  "gettingStarted": "How to actually start using THIS project in 2-3 sentences",
+  "funFact": "one genuinely interesting or surprising thing about THIS specific project"
 }`;
 
   try {
@@ -122,7 +134,7 @@ NO extra text. Just the raw JSON:
         messages: [
           { 
             role: 'system', 
-            content: 'You are a technical analyst. Respond ONLY with raw valid JSON. No markdown. No backticks. No explanation.' 
+            content: 'You are a technical analyst who explains real GitHub projects. You always read the README carefully and describe what the project ACTUALLY does. You never give generic descriptions. You never describe GitHub features. You only describe the specific project you are analyzing. Respond ONLY with raw valid JSON. No markdown. No backticks. No extra text.' 
           },
           { 
             role: 'user', 

@@ -6,6 +6,23 @@ function KeyFeatures({ features = [] }) {
   
   if (!features || features.length === 0) return null;
 
+  const getFeatureEmoji = (text) => {
+    if (!text) return '✨';
+    const textLower = text.toLowerCase();
+    if (textLower.includes('search')) return '🔍';
+    if (textLower.includes('auth')) return '🔐';
+    if (textLower.includes('dashboard')) return '📊';
+    if (textLower.includes('deploy')) return '🚀';
+    if (textLower.includes('api')) return '🔌';
+    if (textLower.includes('real-time') || textLower.includes('live')) return '⚡';
+    if (textLower.includes('file')) return '📁';
+    if (textLower.includes('chat')) return '💬';
+    if (textLower.includes('analytics')) return '📈';
+    return '✨';
+  };
+
+  const borderColors = ['#58a6ff', '#3fb950', '#bc8cff', '#f78166', '#e3b341'];
+
   return (
     <div 
       ref={elementRef}
@@ -14,18 +31,24 @@ function KeyFeatures({ features = [] }) {
       <h2 className="features-main-heading">What Can It Do?</h2>
       
       <div className="features-grid">
-        {features.map((feature, idx) => (
-          <div 
-            key={idx} 
-            className="feature-card card animate-item"
-            style={{ animationDelay: `${idx * 0.1}s` }}
-          >
-            <div className="feature-icon-wrapper">
-              <i className="fa-solid fa-circle-check feature-checkmark"></i>
+        {features.map((feature, idx) => {
+          const leftBorderColor = borderColors[idx % borderColors.length];
+          return (
+            <div 
+              key={idx} 
+              className="feature-card card animate-item"
+              style={{ 
+                borderLeft: `4px solid ${leftBorderColor}`,
+                animationDelay: `${idx * 0.1}s` 
+              }}
+            >
+              <div className="feature-icon-wrapper">
+                {getFeatureEmoji(feature)}
+              </div>
+              <p className="feature-text">{feature}</p>
             </div>
-            <p className="feature-text">{feature}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <style>{`
@@ -68,13 +91,9 @@ function KeyFeatures({ features = [] }) {
         }
 
         .feature-icon-wrapper {
-          font-size: 1.25rem;
+          font-size: 1.5rem;
           flex-shrink: 0;
-          margin-top: 2px;
-        }
-
-        .feature-checkmark {
-          color: var(--accent-green);
+          margin-top: -2px;
         }
 
         .feature-text {
@@ -82,6 +101,8 @@ function KeyFeatures({ features = [] }) {
           line-height: 1.5;
           color: var(--text-secondary);
           font-weight: 500;
+          white-space: normal;
+          word-break: break-word;
         }
 
         /* Scroll Animation Triggers */
