@@ -31,3 +31,16 @@ pnpm-debug.log*
 *.sw?
 /server/test_openrouter.js
 
+# Vercel & Deployment
+.vercel/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Caches and temp
+.eslintcache
+.cache/
+.temp/
+tmp/
+.npm
