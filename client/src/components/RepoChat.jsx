@@ -1,13 +1,63 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { chatWithRepo } from '../services/api.js';
 
-function RepoChat({ repoData }) {
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content: `👋 Hi! I'm your RepoLens Assistant. Ask me anything about the **${repoData?.owner}/${repoData?.repo}** repository! E.g. folder structure, setup steps, how it works, or the tech stack.`
+function CodeBlock({ code }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
     }
-  ]);
+  };
+
+  return (
+    <div className="chat-code-block-wrapper">
+      <div className="chat-code-block-header">
+        <span className="code-lang-label">Code Output</span>
+        <button className="code-copy-btn" onClick={handleCopy} type="button">
+          {copied ? (
+            <>
+              <i className="fa-solid fa-check" style={{ color: 'var(--accent-green)' }}></i> Copied
+            </>
+          ) : (
+            <>
+              <i className="fa-solid fa-copy"></i> Copy
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="chat-code-block">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+function RepoChat({ repoData }) {
+  const repoName = repoData?.repo || repoData?.repo_name || '';
+  const repoOwner = repoData?.owner || '';
+  const storageKey = `repolens_chat_${repoOwner}_${repoName}`;
+
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing saved chat history:', e);
+      }
+    }
+    return [
+      {
+        role: 'assistant',
+        content: `👋 Hi! I'm your RepoLens Assistant. Ask me anything about the **${repoOwner}/${repoName}** repository! E.g. folder structure, setup steps, how it works, or the tech stack.`
+      }
+    ];
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -16,6 +66,26 @@ function RepoChat({ repoData }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Persist messages to localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    }
+  }, [messages, storageKey]);
+
+  const handleReset = () => {
+    if (window.confirm("Are you sure you want to reset this conversation?")) {
+      const initial = [
+        {
+          role: 'assistant',
+          content: `👋 Hi! I'm your RepoLens Assistant. Ask me anything about the **${repoOwner}/${repoName}** repository! E.g. folder structure, setup steps, how it works, or the tech stack.`
+        }
+      ];
+      setMessages(initial);
+      localStorage.setItem(storageKey, JSON.stringify(initial));
+    }
+  };
 
   const handleSend = async (textToSend) => {
     const text = textToSend || input;
@@ -70,9 +140,7 @@ function RepoChat({ repoData }) {
         if (inCodeBlock) {
           // close code block
           parts.push(
-            <pre key={`code-${index}`} className="chat-code-block">
-              <code>{codeBlockContent.join('\n')}</code>
-            </pre>
+            <CodeBlock key={`code-${index}`} code={codeBlockContent.join('\n')} />
           );
           codeBlockContent = [];
           inCodeBlock = false;
@@ -149,8 +217,18 @@ function RepoChat({ repoData }) {
             <span className="chat-subtitle">Ask me anything about this codebase</span>
           </div>
         </div>
-        <div className="chat-status-indicator">
-          <span className="indicator-dot"></span> Live Chat
+        <div className="chat-actions-group">
+          <button 
+            type="button" 
+            className="chat-reset-btn" 
+            onClick={handleReset} 
+            title="Reset Conversation"
+          >
+            <i className="fa-solid fa-arrow-rotate-left"></i> Reset Chat
+          </button>
+          <div className="chat-status-indicator">
+            <span className="indicator-dot"></span> Live Chat
+          </div>
         </div>
       </div>
 
@@ -285,6 +363,33 @@ function RepoChat({ repoData }) {
           font-size: 0.8rem;
           color: var(--text-secondary);
           font-weight: 500;
+        }
+
+        .chat-actions-group {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .chat-reset-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background-color: transparent;
+          border: 1px solid var(--border);
+          color: var(--text-secondary);
+          padding: 6px 12px;
+          border-radius: var(--radius-sm);
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .chat-reset-btn:hover {
+          background-color: rgba(247, 129, 102, 0.1);
+          border-color: var(--accent-orange);
+          color: var(--accent-orange);
         }
 
         .chat-status-indicator {
@@ -444,16 +549,62 @@ function RepoChat({ repoData }) {
           font-size: 0.8rem;
         }
         
-        .chat-code-block {
-          background-color: #0d1117;
+        .chat-code-block-wrapper {
           border: 1px solid var(--border);
           border-radius: 8px;
+          margin: 12px 0;
+          overflow: hidden;
+          background-color: #0d1117;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .chat-code-block-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background-color: var(--bg-secondary);
+          padding: 8px 14px;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .code-lang-label {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .code-copy-btn {
+          background: transparent;
+          border: none;
+          color: var(--text-secondary);
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: color 0.2s;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .code-copy-btn:hover {
+          color: var(--accent-blue);
+          background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .chat-code-block {
+          background-color: #0d1117;
+          border: none;
+          border-radius: 0;
           padding: 14px;
           font-family: 'Space Grotesk', monospace;
           font-size: 0.85rem;
           overflow-x: auto;
-          margin: 12px 0;
-          box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+          margin: 0;
+          box-shadow: none;
         }
         
         .chat-inline-code {
