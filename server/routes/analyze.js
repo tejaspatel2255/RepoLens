@@ -1,5 +1,5 @@
 import express from 'express';
-import { analyzeRepo } from '../services/openrouterService.js';
+import { analyzeRepo, chatWithRepo } from '../services/openrouterService.js';
 import { saveAnalysis } from '../services/supabaseService.js';
 
 const router = express.Router();
@@ -65,6 +65,44 @@ router.post('/', async (req, res) => {
 
     return res.status(500).json({
       error: error.message || 'AI analysis failed unexpectedly',
+      details: error.response?.data || null
+    });
+  }
+});
+
+router.post('/chat', async (req, res) => {
+  try {
+    const { repoData, messages } = req.body;
+
+    console.log('=== POST /api/analyze/chat called ===');
+    console.log('Owner/Repo:', repoData?.owner + '/' + repoData?.repo);
+    console.log('Number of messages:', messages?.length);
+
+    if (!repoData || !messages || !Array.isArray(messages)) {
+      return res.status(400).json({
+        error: 'Missing repoData or messages array.'
+      });
+    }
+
+    if (!process.env.OPENROUTER_API_KEY) {
+      return res.status(500).json({
+        error: 'OPENROUTER_API_KEY is not set on the server.'
+      });
+    }
+
+    console.log('Starting Q&A chat...');
+    const reply = await chatWithRepo(repoData, messages);
+
+    return res.json({
+      success: true,
+      message: reply
+    });
+
+  } catch (error) {
+    console.error('=== /api/analyze/chat ERROR ===');
+    console.error('Message:', error.message);
+    return res.status(error.response?.status || 500).json({
+      error: error.message || 'AI chat failed unexpectedly',
       details: error.response?.data || null
     });
   }

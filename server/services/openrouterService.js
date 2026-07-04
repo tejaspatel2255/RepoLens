@@ -332,3 +332,115 @@ Only describe what THIS project actually does.
   console.log('Health score:', parsed.projectHealthScore.score);
   return parsed;
 };
+
+export const chatWithRepo = async (repoData, messages) => {
+  const owner = repoData.owner;
+  const repo = repoData.repo || repoData.repo_name;
+  const readme = repoData.readme || '';
+  const languages = repoData.languages || [];
+  const commits = repoData.commits || [];
+  
+  const info = repoData.info || {
+    description: repoData.description,
+    stars: repoData.stars,
+    forks: repoData.forks,
+    language: repoData.primary_language,
+    watchers: repoData.watchers
+  };
+
+  const packageInfo = repoData.packageInfo || {};
+  
+  const folderStructure = repoData.folderStructure || {
+    allPaths: repoData.ai_analysis?.folderStructure?.map(f => f.name) || []
+  };
+
+  const languageStr = languages.length
+    ? languages.map(l => `${l.name}: ${l.percentage}%`).join(', ')
+    : info.language || 'Unknown';
+
+  const commitStr = commits.length
+    ? commits.slice(0, 5).map((c, i) => `${i + 1}. [${(c.date || '').slice(0, 10)}] ${c.message}`).join('\n')
+    : 'No commits available';
+
+  const depsStr = packageInfo.dependencies
+    ? Object.keys(packageInfo.dependencies).slice(0, 15).join(', ')
+    : 'Not detected';
+
+  const fileTreeStr = folderStructure.allPaths
+    ? folderStructure.allPaths.slice(0, 30).join('\n')
+    : 'Not available';
+
+  const systemPrompt = `You are "RepoLens Assistant", an expert AI software analyst answering questions about the GitHub repository "${owner}/${repo}".
+Answer the user's questions clearly, concisely, and specifically based on the repository context provided below. Use markdown formatting for code blocks or emphasis.
+If you don't know the answer or the context doesn't contain enough details (e.g. specific source code files), explain that you only have a high-level context of the repo structure/dependencies, but suggest where they can likely look or how it would typically be implemented.
+
+=== REPOSITORY CONTEXT ===
+Repository: ${owner}/${repo}
+Description: ${info.description || 'No description provided'}
+Primary Languages: ${languageStr}
+Dependencies: ${depsStr}
+Recent Commits:
+${commitStr}
+File Tree (first 30 files):
+${fileTreeStr}
+README Snippet:
+${readme.slice(0, 1500)}
+`;
+
+  const modelsToTry = [
+    'google/gemini-2.5-flash',
+    'google/gemini-2.5-flash-lite',
+    'google/gemma-4-31b-it:free',
+    'google/gemma-3-27b-it:free',
+    'openrouter/free'
+  ];
+
+  let response = null;
+  let lastError = null;
+
+  for (const model of modelsToTry) {
+    try {
+      console.log(`[Chat] Sending to OpenRouter with model: ${model}...`);
+      response = await axios.post(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          model: model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages
+          ],
+          max_tokens: 1500,
+          temperature: 0.7
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://repo-lens-client.vercel.app',
+            'X-Title': 'RepoLens'
+          },
+          timeout: 55000
+        }
+      );
+      console.log(`[Chat] Successfully received response from model: ${model}`);
+      break;
+    } catch (apiError) {
+      console.error(`=== [Chat] OPENROUTER API CALL FAILED for model: ${model} ===`);
+      console.error('Status:', apiError.response?.status);
+      console.error('Data:', JSON.stringify(apiError.response?.data));
+
+      lastError = apiError;
+
+      if (apiError.response?.status === 401) {
+        throw apiError;
+      }
+      console.log('Trying next fallback model...');
+    }
+  }
+
+  if (!response) {
+    throw lastError || new Error('All OpenRouter models failed to respond.');
+  }
+
+  return response.data.choices[0].message;
+};

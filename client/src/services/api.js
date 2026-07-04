@@ -99,3 +99,13 @@ export const analyzeFromUrl = async (repoUrl) => {
 
   return result;
 };
+
+export const chatWithRepo = async (repoData, messages) => {
+  try {
+    const response = await api.post('/analyze/chat', { repoData, messages });
+    return response.data.message;
+  } catch (error) {
+    const msg = error.response?.data?.error || error.message || 'Failed to chat with AI';
+    throw new Error(msg);
+  }
+};

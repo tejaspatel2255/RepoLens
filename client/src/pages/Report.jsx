@@ -17,6 +17,7 @@ import LoadingScreen from '../components/LoadingScreen.jsx';
 import HealthScore from '../components/HealthScore.jsx';
 import FolderTree from '../components/FolderTree.jsx';
 import InstallRun from '../components/InstallRun.jsx';
+import RepoChat from '../components/RepoChat.jsx';
 
 function Report() {
   const { id } = useParams();
@@ -217,7 +218,10 @@ Analyze your own repo at: repolens.app`;
         {/* 9. Commit activity timelines */}
         <CommitTimeline commits={adaptedCommits} />
 
-        {/* 10. Summary Footers */}
+        {/* 10. Interactive Q&A Assistant Chat */}
+        <RepoChat repoData={data} />
+
+        {/* 11. Summary Footers */}
         <footer className="report-footer card">
           <h3 className="footer-title">Share & Explore</h3>
           <div className="footer-actions">
