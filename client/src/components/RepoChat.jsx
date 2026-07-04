@@ -229,8 +229,20 @@ function RepoChat({ repoData }) {
           flex-direction: column;
           border-radius: var(--radius-lg);
           border: 1px solid var(--border);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
           margin-bottom: 32px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .repo-chat-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
         }
 
         .chat-header {
@@ -249,7 +261,16 @@ function RepoChat({ repoData }) {
         }
 
         .chat-icon-avatar {
-          font-size: 1.8rem;
+          font-size: 1.5rem;
+          width: 40px;
+          height: 40px;
+          background: linear-gradient(135deg, rgba(88, 166, 255, 0.15) 0%, rgba(188, 140, 255, 0.15) 100%);
+          border: 1px solid rgba(88, 166, 255, 0.25);
+          border-radius: var(--radius-md);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 12px rgba(88, 166, 255, 0.1);
         }
 
         .chat-title {
@@ -257,6 +278,7 @@ function RepoChat({ repoData }) {
           font-weight: 800;
           color: var(--text-primary);
           line-height: 1.2;
+          letter-spacing: -0.01em;
         }
 
         .chat-subtitle {
@@ -268,14 +290,16 @@ function RepoChat({ repoData }) {
         .chat-status-indicator {
           display: flex;
           align-items: center;
-          gap: 6px;
-          font-size: 0.8rem;
+          gap: 8px;
+          font-size: 0.78rem;
           font-weight: 600;
           color: var(--accent-green);
-          background-color: rgba(52, 211, 153, 0.1);
-          padding: 4px 10px;
+          background-color: rgba(63, 185, 80, 0.1);
+          padding: 6px 12px;
           border-radius: 20px;
-          border: 1px solid rgba(52, 211, 153, 0.2);
+          border: 1px solid rgba(63, 185, 80, 0.15);
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
         }
 
         .indicator-dot {
@@ -289,21 +313,21 @@ function RepoChat({ repoData }) {
         @keyframes pulseGreen {
           0% {
             transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7);
+            box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.5);
           }
           70% {
             transform: scale(1);
-            box-shadow: 0 0 0 5px rgba(52, 211, 153, 0);
+            box-shadow: 0 0 0 6px rgba(63, 185, 80, 0);
           }
           100% {
             transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+            box-shadow: 0 0 0 0 rgba(63, 185, 80, 0);
           }
         }
 
         .chat-messages-container {
-          min-height: 200px;
-          max-height: 380px;
+          min-height: 240px;
+          max-height: 420px;
           overflow-y: auto;
           display: flex;
           flex-direction: column;
@@ -312,18 +336,32 @@ function RepoChat({ repoData }) {
           margin-bottom: 20px;
         }
 
+        .chat-messages-container::-webkit-scrollbar {
+          width: 5px;
+        }
+        .chat-messages-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .chat-messages-container::-webkit-scrollbar-thumb {
+          background: var(--border);
+          border-radius: 10px;
+        }
+        .chat-messages-container::-webkit-scrollbar-thumb:hover {
+          background: var(--text-secondary);
+        }
+
         /* Message Bubbles */
         .chat-message-bubble {
           display: flex;
-          gap: 12px;
+          gap: 14px;
           max-width: 85%;
-          animation: slideInUp 0.3s ease;
+          animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         @keyframes slideInUp {
           from {
             opacity: 0;
-            transform: translateY(10px);
+            transform: translateY(12px);
           }
           to {
             opacity: 1;
@@ -341,35 +379,41 @@ function RepoChat({ repoData }) {
         }
 
         .message-avatar {
-          width: 32px;
-          height: 32px;
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           background-color: var(--bg-secondary);
           border: 1px solid var(--border);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1rem;
+          font-size: 1.05rem;
           flex-shrink: 0;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
         }
 
         .message-content {
-          border-radius: 12px;
-          padding: 12px 16px;
-          font-size: 0.95rem;
-          line-height: 1.5;
+          border-radius: 14px;
+          padding: 14px 18px;
+          font-size: 0.94rem;
+          line-height: 1.58;
+          letter-spacing: -0.005em;
         }
 
         .assistant .message-content {
           background-color: var(--bg-secondary);
           border: 1px solid var(--border);
           color: var(--text-primary);
+          border-top-left-radius: 2px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
         }
 
         .user .message-content {
-          background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
-          color: white;
-          border-radius: 12px;
+          background: linear-gradient(135deg, rgba(88, 166, 255, 0.08) 0%, rgba(188, 140, 255, 0.08) 100%);
+          border: 1px solid rgba(88, 166, 255, 0.25);
+          color: var(--text-primary);
+          border-top-right-radius: 2px;
+          box-shadow: 0 4px 12px rgba(88, 166, 255, 0.04);
         }
 
         .user-text {
@@ -380,39 +424,50 @@ function RepoChat({ repoData }) {
 
         /* Assistant formatting styles */
         .assistant-text-formatted p {
-          margin: 0 0 10px 0;
+          margin: 0 0 12px 0;
         }
         .assistant-text-formatted p:last-child {
           margin-bottom: 0;
         }
+        
         .chat-bullet {
-          margin-left: 18px;
-          margin-bottom: 6px;
-          list-style-type: disc;
+          margin-left: 20px;
+          margin-bottom: 8px;
+          list-style-type: none;
+          position: relative;
         }
-        .chat-bullet::marker {
+        .chat-bullet::before {
+          content: '✦';
           color: var(--accent-blue);
+          position: absolute;
+          left: -16px;
+          font-size: 0.8rem;
         }
+        
         .chat-code-block {
-          background-color: rgba(0, 0, 0, 0.4);
+          background-color: #0d1117;
           border: 1px solid var(--border);
-          border-radius: 6px;
-          padding: 10px;
-          font-family: 'Courier New', Courier, monospace;
+          border-radius: 8px;
+          padding: 14px;
+          font-family: 'Space Grotesk', monospace;
           font-size: 0.85rem;
           overflow-x: auto;
-          margin: 10px 0;
+          margin: 12px 0;
+          box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
         }
+        
         .chat-inline-code {
-          background-color: rgba(255, 255, 255, 0.08);
-          border: 1.5px solid var(--border);
-          padding: 2px 5px;
+          background-color: rgba(255, 255, 255, 0.06);
+          border: 1px solid var(--border);
+          padding: 2px 6px;
           border-radius: 4px;
           font-family: monospace;
           font-size: 0.9em;
+          color: var(--accent-purple);
         }
+        
         .chat-space {
-          height: 10px;
+          height: 12px;
         }
 
         /* Loading indicator bubble */
@@ -451,19 +506,19 @@ function RepoChat({ repoData }) {
         /* Suggestions chips */
         .chat-suggestions-container {
           border-top: 1px solid var(--border);
-          padding-top: 16px;
+          padding-top: 18px;
           margin-bottom: 20px;
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
         }
 
         .suggestions-label {
-          font-size: 0.8rem;
+          font-size: 0.78rem;
           font-weight: 700;
           color: var(--text-secondary);
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.06em;
         }
 
         .suggestions-chips-group {
@@ -473,21 +528,22 @@ function RepoChat({ repoData }) {
         }
 
         .suggestion-chip {
-          background-color: rgba(56, 189, 248, 0.08);
-          border: 1px solid rgba(56, 189, 248, 0.15);
-          color: var(--accent-blue);
-          border-radius: var(--radius-sm);
-          padding: 6px 12px;
-          font-size: 0.85rem;
+          background: rgba(88, 166, 255, 0.03);
+          border: 1px solid var(--border);
+          color: var(--text-secondary);
+          border-radius: 20px;
+          padding: 8px 16px;
+          font-size: 0.82rem;
           font-weight: 500;
           cursor: pointer;
-          transition: all 0.2s ease;
-          text-align: left;
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .suggestion-chip:hover {
-          background-color: var(--accent-blue);
-          color: var(--bg-primary);
-          transform: translateY(-1px);
+          background: rgba(88, 166, 255, 0.08);
+          border-color: var(--accent-blue);
+          color: var(--text-primary);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(88, 166, 255, 0.1);
         }
 
         /* Input Container */
@@ -496,10 +552,12 @@ function RepoChat({ repoData }) {
           background-color: var(--bg-secondary);
           border: 1px solid var(--border);
           border-radius: var(--radius-md);
-          padding: 6px 6px 6px 14px;
+          padding: 6px 6px 6px 16px;
+          transition: border-color 0.2s, box-shadow 0.2s;
         }
         .chat-input-container:focus-within {
           border-color: var(--accent-blue);
+          box-shadow: 0 0 12px rgba(88, 166, 255, 0.1);
         }
 
         .chat-text-input {
@@ -516,8 +574,10 @@ function RepoChat({ repoData }) {
         }
 
         .chat-send-btn {
-          padding: 10px 18px;
+          padding: 10px 20px;
+          border-radius: var(--radius-sm);
           font-size: 0.85rem;
+          font-weight: 600;
         }
       `}</style>
     </div>
