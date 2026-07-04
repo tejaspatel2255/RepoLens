@@ -6,7 +6,10 @@ function Navbar() {
     <nav className="navbar-fixed">
       <div className="navbar-wrapper">
         <Link to="/" className="navbar-logo-group">
-          <span className="navbar-logo">🔍 RepoLens</span>
+          <div className="navbar-brand">
+            <img src="/logo.svg" alt="RepoLens Logo" className="navbar-logo-img" />
+            <span className="navbar-logo">RepoLens</span>
+          </div>
           <span className="navbar-subtitle">GitHub for Everyone</span>
         </Link>
         
@@ -55,17 +58,35 @@ function Navbar() {
           text-decoration: none;
         }
 
+        .navbar-brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .navbar-logo-img {
+          width: 28px;
+          height: 28px;
+          filter: drop-shadow(0 2px 8px rgba(56, 189, 248, 0.3));
+        }
+
         .navbar-logo {
-          color: var(--text-primary);
+          background: linear-gradient(90deg, #38bdf8 0%, #a855f7 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
           font-weight: 800;
-          font-size: 1.3rem;
+          font-size: 1.35rem;
           line-height: 1.2;
+          letter-spacing: -0.02em;
         }
 
         .navbar-subtitle {
           color: var(--text-secondary);
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           font-weight: 500;
+          margin-top: 2px;
+          padding-left: 38px;
         }
 
         .navbar-github-link {

@@ -17,7 +17,7 @@ function LoadingScreen({ steps = [], currentStep = 0 }) {
       <div className="loading-box card animate-fade">
         <div className="logo-pulse-wrapper">
           <div className="logo-pulse-avatar">
-            🔍
+            <img src="/logo.svg" alt="RepoLens Logo" className="loading-logo-img" />
           </div>
           <div className="pulse-ripple-1"></div>
           <div className="pulse-ripple-2"></div>
@@ -106,8 +106,15 @@ function LoadingScreen({ steps = [], currentStep = 0 }) {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.8rem;
           z-index: 5;
+          padding: 10px;
+        }
+
+        .loading-logo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          filter: drop-shadow(0 2px 6px rgba(56, 189, 248, 0.2));
         }
 
         .pulse-ripple-1, .pulse-ripple-2 {
