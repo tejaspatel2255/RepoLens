@@ -57,17 +57,8 @@ export async function saveAnalysis(repoData, aiAnalysis) {
 
   if (existing && existing.length > 0) {
     const record = existing[0];
-    const timeDiff = new Date() - new Date(record.updated_at);
-    const twentyFourHours = 24 * 60 * 60 * 1000;
-
-    // Cache hit: If updated less than 24 hours ago, return existing record
-    if (timeDiff < twentyFourHours) {
-      console.log(`[Supabase Cache] Less than 24 hours since last update for ${repoUrl}. Returning cached record.`);
-      return record;
-    }
-
-    // Cache expired: Update existing record
-    console.log(`[Supabase Cache] Cache expired (>24 hours) for ${repoUrl}. Updating record.`);
+    
+    console.log(`[Supabase Cache] Updating existing record for ${repoUrl}.`);
     const { data: updated, error: updateError } = await supabase
       .from('analyses')
       .update(mappedData)

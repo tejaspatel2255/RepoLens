@@ -1,18 +1,19 @@
 import express from 'express';
 import { analyzeRepo, chatWithRepo } from '../services/openrouterService.js';
-import { saveAnalysis } from '../services/supabaseService.js';
+import { saveAnalysis, getAnalysisByUrl } from '../services/supabaseService.js';
 
 const router = express.Router();
 
 router.post('/', async (req, res) => {
   try {
-    const { repoData } = req.body;
+    const { repoData, forceRefresh = false } = req.body;
 
     console.log('=== POST /api/analyze called ===');
     console.log('Has repoData:', !!repoData);
     console.log('Owner:', repoData?.owner);
     console.log('Repo:', repoData?.repo);
     console.log('Has OpenRouter key:', !!process.env.OPENROUTER_API_KEY);
+    console.log('Force Refresh:', forceRefresh);
 
     if (!repoData || !repoData.owner || !repoData.repo) {
       return res.status(400).json({
@@ -24,6 +25,28 @@ router.post('/', async (req, res) => {
       return res.status(500).json({
         error: 'OPENROUTER_API_KEY is not set on the server. Add it in Vercel environment variables and redeploy.'
       });
+    }
+
+    // Check cache if not forcing refresh
+    if (!forceRefresh) {
+      const repoUrl = `https://github.com/${repoData.owner}/${repoData.repo}`;
+      try {
+        const existing = await getAnalysisByUrl(repoUrl);
+        if (existing) {
+          const timeDiff = new Date() - new Date(existing.updated_at);
+          const twentyFourHours = 24 * 60 * 60 * 1000;
+          if (timeDiff < twentyFourHours) {
+            console.log(`[Supabase Cache Hit] Less than 24 hours since last update for ${repoUrl}. Returning cached record.`);
+            return res.json({
+              success: true,
+              aiAnalysis: existing.ai_analysis,
+              analysisId: existing.id
+            });
+          }
+        }
+      } catch (cacheError) {
+        console.warn('Cache lookup failed, proceeding with fresh analysis:', cacheError.message);
+      }
     }
 
     console.log('Starting AI analysis...');

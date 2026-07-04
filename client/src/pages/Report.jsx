@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAnalysisById } from '../services/api.js';
+import { getAnalysisById, fetchGithubData, analyzeRepo } from '../services/api.js';
 
 import Navbar from '../components/Navbar.jsx';
 import SnapshotBar from '../components/SnapshotBar.jsx';
@@ -27,6 +27,32 @@ function Report() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
+
+  const handleReanalyze = async () => {
+    if (!data?.repo_url) return;
+    setIsReanalyzing(true);
+    try {
+      // 1. Fetch fresh data from GitHub
+      const repoData = await fetchGithubData(data.repo_url);
+      
+      // 2. Perform fresh AI analysis bypassing the cache
+      const result = await analyzeRepo(repoData, true);
+      
+      // 3. Navigate to the new report page or reload if ID is same
+      if (result.analysisId === id) {
+        window.location.reload();
+      } else {
+        navigate(`/report/${result.analysisId}`);
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Re-analysis failed:', err);
+      alert(`Re-analysis failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsReanalyzing(false);
+    }
+  };
 
   // Fetch report details on mount
   useEffect(() => {
@@ -233,6 +259,30 @@ Analyze your own repo at: repolens.app`;
             >
               <i className="fa-brands fa-github"></i> View on GitHub
             </a>
+
+            <button 
+              onClick={handleReanalyze} 
+              className="btn footer-btn" 
+              disabled={isReanalyzing}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'linear-gradient(135deg, rgba(88, 166, 255, 0.1) 0%, rgba(188, 140, 255, 0.1) 100%)',
+                border: '1px solid rgba(88, 166, 255, 0.3)',
+                color: 'var(--text-primary)'
+              }}
+            >
+              {isReanalyzing ? (
+                <>
+                  <i className="fa-solid fa-spinner fa-spin"></i> Re-analyzing...
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-arrows-rotate"></i> Re-analyze Repository
+                </>
+              )}
+            </button>
             
             <button onClick={handleCopyReport} className="btn footer-btn">
               <i className="fa-solid fa-copy"></i> Copy Report Summary

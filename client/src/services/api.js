@@ -44,10 +44,10 @@ export const fetchGithubData = async (repoUrl) => {
   }
 };
 
-export const analyzeRepo = async (repoData) => {
+export const analyzeRepo = async (repoData, forceRefresh = false) => {
   try {
     console.log('Sending repoData for AI analysis:', repoData.owner + '/' + repoData.repo);
-    const response = await api.post('/analyze', { repoData });
+    const response = await api.post('/analyze', { repoData, forceRefresh });
     console.log('Analysis received, ID:', response.data.analysisId);
     return response.data;
   } catch (error) {
