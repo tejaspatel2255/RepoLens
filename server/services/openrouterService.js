@@ -206,54 +206,29 @@ Only describe what THIS project actually does.
 }`
 
   console.log('Prompt length (chars):', prompt.length);
-  console.log('Sending to OpenRouter with model: google/gemini-2.5-flash...');
 
-  let response;
-  try {
-    response = await axios.post(
-      'https://openrouter.ai/api/v1/chat/completions',
-      {
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a software analyst. Respond ONLY with raw valid JSON. No markdown. No backticks. No text before or after the JSON object.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 4000,
-        temperature: 0.7
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://repo-lens-client.vercel.app',
-          'X-Title': 'RepoLens'
-        },
-        timeout: 55000
-      }
-    );
-  } catch (apiError) {
-    console.error('=== OPENROUTER API CALL FAILED ===');
-    console.error('Status:', apiError.response?.status);
-    console.error('Data:', JSON.stringify(apiError.response?.data));
-    console.error('Message:', apiError.message);
+  const modelsToTry = [
+    'google/gemini-2.5-flash',
+    'google/gemini-2.5-flash-lite',
+    'google/gemma-4-31b-it:free',
+    'google/gemma-3-27b-it:free',
+    'openrouter/free'
+  ];
 
-    // If Gemini Flash fails try free fallback model
-    if (apiError.response?.status === 429 || apiError.response?.status === 402) {
-      console.log('Trying fallback model: google/gemma-4-31b-it:free');
+  let response = null;
+  let lastError = null;
+
+  for (const model of modelsToTry) {
+    try {
+      console.log(`Sending to OpenRouter with model: ${model}...`);
       response = await axios.post(
         'https://openrouter.ai/api/v1/chat/completions',
         {
-          model: 'google/gemma-4-31b-it:free',
+          model: model,
           messages: [
             {
               role: 'system',
-              content: 'You are a software analyst. Respond ONLY with raw valid JSON. No markdown. No backticks.'
+              content: 'You are a software analyst. Respond ONLY with raw valid JSON. No markdown. No backticks. No text before or after the JSON object.'
             },
             {
               role: 'user',
@@ -273,9 +248,26 @@ Only describe what THIS project actually does.
           timeout: 55000
         }
       );
-    } else {
-      throw apiError;
+      console.log(`Successfully received response from model: ${model}`);
+      break;
+    } catch (apiError) {
+      console.error(`=== OPENROUTER API CALL FAILED for model: ${model} ===`);
+      console.error('Status:', apiError.response?.status);
+      console.error('Data:', JSON.stringify(apiError.response?.data));
+      console.error('Message:', apiError.message);
+
+      lastError = apiError;
+
+      // If it's a 401 Unauthorized, fail immediately as credentials are bad
+      if (apiError.response?.status === 401) {
+        throw apiError;
+      }
+      console.log('Trying next fallback model...');
     }
+  }
+
+  if (!response) {
+    throw lastError || new Error('All OpenRouter models failed to respond.');
   }
 
   console.log('OpenRouter response status:', response.status);
