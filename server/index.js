@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import githubRouter from './routes/github.js';
 import analyzeRouter from './routes/analyze.js';
 import historyRouter from './routes/history.js';
+import authRouter from './routes/auth.js';
 
 dotenv.config();
 
@@ -43,6 +44,7 @@ app.get('/debug', (req, res) => {
 app.use('/api/github', githubRouter);
 app.use('/api/analyze', analyzeRouter);
 app.use('/api/history', historyRouter);
+app.use('/api/auth', authRouter);
 
 app.use((err, req, res, next) => {
   console.error('Global error:', err.message);

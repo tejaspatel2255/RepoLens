@@ -1,7 +1,8 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import Home from './pages/Home.jsx';
 import Report from './pages/Report.jsx';
+import Auth from './pages/Auth.jsx';
 
 /**
  * 404 - Page Not Found Fallback component
@@ -73,12 +74,33 @@ function NotFound() {
   );
 }
 
+function ProtectedRoute({ children }) {
+  const token = localStorage.getItem('repolens_token');
+  const location = useLocation();
+
+  if (!token) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/report/:id" element={<Report />} />
+        <Route path="/login" element={<Auth />} />
+        <Route path="/register" element={<Auth />} />
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        } />
+        <Route path="/report/:id" element={
+          <ProtectedRoute>
+            <Report />
+          </ProtectedRoute>
+        } />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

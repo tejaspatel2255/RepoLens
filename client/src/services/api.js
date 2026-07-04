@@ -12,8 +12,12 @@ const api = axios.create({
   }
 });
 
-// Request interceptor for logging
+// Request interceptor for logging & token injection
 api.interceptors.request.use(config => {
+  const token = localStorage.getItem('repolens_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
   return config;
 });
@@ -108,4 +112,37 @@ export const chatWithRepo = async (repoData, messages) => {
     const msg = error.response?.data?.error || error.message || 'Failed to chat with AI';
     throw new Error(msg);
   }
+};
+
+export const registerUser = async (email, password, name) => {
+  try {
+    const response = await api.post('/auth/register', { email, password, name });
+    if (response.data.token) {
+      localStorage.setItem('repolens_token', response.data.token);
+      localStorage.setItem('repolens_user', JSON.stringify(response.data.user));
+    }
+    return response.data;
+  } catch (error) {
+    const msg = error.response?.data?.error || error.message || 'Registration failed';
+    throw new Error(msg);
+  }
+};
+
+export const loginUser = async (email, password) => {
+  try {
+    const response = await api.post('/auth/login', { email, password });
+    if (response.data.token) {
+      localStorage.setItem('repolens_token', response.data.token);
+      localStorage.setItem('repolens_user', JSON.stringify(response.data.user));
+    }
+    return response.data;
+  } catch (error) {
+    const msg = error.response?.data?.error || error.message || 'Login failed';
+    throw new Error(msg);
+  }
+};
+
+export const logoutUser = () => {
+  localStorage.removeItem('repolens_token');
+  localStorage.removeItem('repolens_user');
 };
